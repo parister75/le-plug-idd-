@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Choisir mon adresse</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000000;
+            --card-bg: #111111;
+            --accent: #ff003c;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --border: #222222;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .header {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            color: #fff;
+            font-size: 16px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .results {
+            list-style: none;
+        }
+
+        .result-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-item:active {
+            transform: scale(0.98);
+            border-color: var(--accent);
+        }
+
+        .result-item .label {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .result-item .context {
+            font-size: 13px;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loader div {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--accent);
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            margin-top: 40px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>📍 Ma Livraison</h1>
+        <p>Saisissez votre adresse pour commander</p>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="addressInput" class="search-input" placeholder="Ex: 11 rue de la Paix..."
+            autocomplete="off">
+    </div>
+
+    <div class="loader" id="loader">
+        <div></div>
+    </div>
+
+    <ul class="results" id="resultsList"></ul>
+
+    <div id="emptyState" class="empty-state">
+        Commencez à taper pour voir des suggestions...
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        const input = document.getElementById('addressInput');
+        const resultsList = document.getElementById('resultsList');
+        const loader = document.getElementById('loader');
+        const emptyState = document.getElementById('emptyState');
+
+        let debounceTimer;
+
+        input.addEventListener('input', (e) => {
+            const query = e.target.value;
+            clearTimeout(debounceTimer);
+
+            if (query.length < 3) {
+                resultsList.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                searchAddress(query);
+            }, 300);
+        });
+
+        async function searchAddress(query) {
+            loader.style.display = 'block';
+            emptyState.style.display = 'none';
+            resultsList.innerHTML = '';
+
+            try {
+                const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+                const data = await response.json();
+
+                loader.style.display = 'none';
+
+                if (data.features.length === 0) {
+                    emptyState.textContent = 'Aucun résultat trouvé.';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                data.features.forEach(feature => {
+                    const li = document.createElement('li');
+                    li.className = 'result-item';
+
+                    const label = feature.properties.label;
+                    const context = feature.properties.context;
+
+                    li.innerHTML = `
+                        <span class="label">${label}</span>
+                        <span class="context">${context}</span>
+                    `;
+
+                    li.onclick = () => {
+                        tg.sendData(label);
+                    };
+
+                    resultsList.appendChild(li);
+                });
+            } catch (err) {
+                loader.style.display = 'none';
+                emptyState.textContent = 'Erreur lors de la recherche.';
+                emptyState.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+
+</html>

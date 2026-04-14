@@ -1,0 +1,8 @@
+serviceAccountKey.json
+node_modules
+*.log
+.DS_Store
+.vscode/
+whatsapp_qr.png
+tmp_products.json
+tmp/

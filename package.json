@@ -1,0 +1,42 @@
+{
+  "name": "bot-clients-telegram",
+  "version": "1.0.0",
+  "description": "Bot Telegram avec interface admin, broadcast, parrainage et statistiques",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "telegraf",
+    "supabase",
+    "admin"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "axios": "^1.13.6",
+    "chart.js": "^4.4.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-fileupload": "^1.5.2",
+    "express-handlebars": "^8.0.1",
+    "express-rate-limit": "^8.3.1",
+    "jimp": "^1.6.0",
+    "jsonwebtoken": "^9.0.3",
+    "link-preview-js": "^4.0.0",
+    "p-limit": "^4.0.0",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "telegraf": "^4.16.3"
+  }
+}

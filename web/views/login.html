@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — Ma Boutique Telegram</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050505;
+      --card-bg: rgba(18, 18, 18, 0.7);
+      --accent: #ff003c;
+      --text: #ffffff;
+      --text-muted: rgba(255, 255, 255, 0.4);
+      --border: rgba(255, 255, 255, 0.08);
+      --input-bg: rgba(255, 255, 255, 0.03);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Minimalist background accent */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -10%;
+      right: -10%;
+      width: 40%;
+      height: 40%;
+      background: radial-gradient(circle, rgba(255, 0, 60, 0.08) 0%, transparent 70%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .login-container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 400px;
+      padding: 24px;
+    }
+
+    .brand-logo {
+      font-size: 32px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -1px;
+      text-align: center;
+      margin-bottom: 40px;
+      background: linear-gradient(to bottom, #fff 0%, #aaa 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-logo span {
+      color: var(--accent);
+      -webkit-text-fill-color: var(--accent);
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 32px;
+      padding: 48px;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
+      animation: reveal 1s cubic-bezier(0.19, 1, 0.22, 1);
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .login-card h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .login-card p {
+      color: var(--text-muted);
+      text-align: center;
+      font-size: 14px;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .form-group {
+      margin-bottom: 28px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 16px 20px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      color: #fff;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    }
+
+    .form-group input:focus {
+      border-color: rgba(255, 0, 60, 0.5);
+      background: rgba(255, 0, 60, 0.02);
+      box-shadow: 0 0 0 4px rgba(255, 0, 60, 0.1);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 18px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 30px rgba(255, 0, 60, 0.2);
+    }
+
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(255, 0, 60, 0.35);
+      filter: brightness(1.1);
+    }
+
+    .login-btn:active {
+      transform: translateY(0);
+    }
+
+    .error-msg {
+      display: none;
+      background: rgba(255, 0, 60, 0.1);
+      border: 1px solid rgba(255, 0, 60, 0.2);
+      color: #ff4d6d;
+      padding: 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 24px;
+      animation: shake 0.4s ease-in-out;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20%,
+      60% {
+        transform: translateX(-6px);
+      }
+
+      40%,
+      80% {
+        transform: translateX(6px);
+      }
+    }
+
+    .footer-text {
+      text-align: center;
+      margin-top: 32px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.15);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-container">
+    <div class="brand-logo">Ma <span>Boutique</span></div>
+
+    <div class="login-card">
+      <h1>Administration</h1>
+      <p>Accédez au panneau de contrôle pour gérer votre boutique.</p>
+
+      <div class="error-msg" id="errorMsg">Accès refusé. Mot de passe incorrect.</div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="password">Clé d'administration</label>
+          <input type="password" id="password" placeholder="••••••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="login-btn" id="loginBtn">
+          IDENTIFICATION
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <a href="#" id="forgotPass"
+          style="color: var(--text-muted); font-size: 13px; text-decoration: none; transition: color 0.3s;"
+          onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">
+          Mot de passe oublié ?
+        </a>
+      </div>
+    </div>
+
+    <div class="footer-text">Security Protocol v5.1.0</div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('admin_token');
+    if (token) window.location.href = '/dashboard';
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const errorMsg = document.getElementById('errorMsg');
+      const password = document.getElementById('password').value;
+
+      btn.disabled = true;
+      btn.textContent = 'VÉRIFICATION...';
+      errorMsg.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.token) {
+          localStorage.setItem('admin_token', data.token);
+          window.location.href = '/dashboard';
+        } else {
+          errorMsg.style.display = 'block';
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Erreur de liaison serveur';
+        errorMsg.style.display = 'block';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'IDENTIFICATION';
+    });
+
+    document.getElementById('forgotPass').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const link = e.target;
+      if (link.dataset.loading) return;
+
+      link.dataset.loading = 'true';
+      link.textContent = 'Notification en cours...';
+
+      try {
+        const res = await fetch('/api/forgot-password', { method: 'POST' });
+        if (res.ok) {
+          link.textContent = 'Notification envoyée sur Telegram !';
+          link.style.color = '#00ff88';
+        } else {
+          link.textContent = 'Erreur lors de l\'envoi.';
+          link.style.color = 'var(--accent)';
+        }
+      } catch (err) {
+        link.textContent = 'Erreur réseau.';
+      }
+
+      setTimeout(() => {
+        link.textContent = 'Mot de passe oublié ?';
+        link.style.color = 'var(--text-muted)';
+        delete link.dataset.loading;
+      }, 5000);
+    });
+  </script>
+</body>
+
+</html>

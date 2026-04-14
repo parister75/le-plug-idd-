@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="dashboardPageTitle">Dashboard Admin — Multi-Canal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #0f0f23;
+            --bg-card: rgba(15, 15, 35, 0.7);
+            --border: rgba(255, 255, 255, 0.06);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-muted: rgba(255, 255, 255, 0.35);
+            --accent: #6366f1;
+            --accent-purple: #a855f7;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --sidebar-width: 260px;
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin: 4px 12px;
+            transition: 0.2s;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.1);
+            color: #fff;
+        }
+
+        /* Main */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 32px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 24px;
+            border-radius: var(--radius);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        /* Forms */
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            margin-bottom: 16px;
+            outline: none;
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .platform-icon {
+            font-size: 16px;
+            margin-right: 8px;
+        }
+
+        /* Helper */
+        .row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .col {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-accent {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2 id="sidebarTitle">Admin Panel</h2>
+        </div>
+        <nav style="flex:1; padding-top:16px;">
+            <a class="nav-item active" id="nav-overview" onclick="switchSection('overview')">📊 Overview</a>
+            <a class="nav-item" id="nav-users" onclick="switchSection('users')">👥 Utilisateurs</a>
+            <a class="nav-item" id="nav-products" onclick="switchSection('products')">🛍️ Produits</a>
+            <a class="nav-item" id="nav-orders" onclick="switchSection('orders')">📦 Commandes</a>
+            <a class="nav-item" id="nav-broadcast" onclick="switchSection('broadcast')">📢 Broadcast</a>
+            <a class="nav-item" id="nav-settings" onclick="switchSection('settings')">⚙️ Paramètres</a>
+        </nav>
+        <div style="padding:16px;">
+            <button class="btn btn-primary" style="width:100%; background:var(--danger);"
+                onclick="logout()">Déconnexion</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <!-- OVERVIEW -->
+        <section class="section active" id="section-overview">
+            <h1 id="mainTitle">Vue d'ensemble</h1>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div>👥 Total Users</div>
+                    <div class="stat-value" id="statUsers">-</div>
+                </div>
+                <div class="stat-card">
+                    <div>✅ Actifs</div>
+                    <div class="stat-value" id="statActive">-</div>
+                </div>
+                <div class="stat-card">
+                    <div>📦 Commandes</div>
+                    <div class="stat-value" id="statOrders">-</div>
+                </div>
+                <div class="stat-card">
+                    <div>💰 CA (Total)</div>
+                    <div class="stat-value" id="statCA">-</div>
+                    <small style="color:var(--text-muted)">Uniquement livrées</small>
+                </div>
+                <div class="stat-card">
+                    <div>🚵 Livreurs</div>
+                    <div class="stat-value" id="statLivreurs">-</div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Activité Récente</h3>
+                <canvas id="mainChart" height="100"></canvas>
+            </div>
+        </section>
+
+        <!-- USERS -->
+        <section class="section" id="section-users">
+            <h1>Utilisateurs</h1>
+            <p style="color:var(--text-muted); margin-bottom:16px;">🛡️ Gestion des membres et fidélité</p>
+            <div class="card" style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Canal</th>
+                            <th>ID / Nom</th>
+                            <th>Username</th>
+                            <th>Parrainages</th>
+                            <th>Commandes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTable"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- PRODUCTS -->
+        <section class="section" id="section-products">
+            <h1>Gestion des Produits</h1>
+            <div class="row">
+                <div class="col card">
+                    <h3>👟 Ajouter / Modifier</h3>
+                    <input type="hidden" id="prod_id">
+                    <label>Nom du produit</label><input id="prod_name" placeholder="ex: Jordan 4 Retro">
+                    <label>Prix (€)</label><input type="number" id="prod_price" placeholder="ex: 199">
+                    <label>URL Photo</label><input id="prod_image" placeholder="https://image-url.com/image.jpg">
+                    <button class="btn btn-primary" onclick="saveProduct()">💾 Enregistrer le produit</button>
+                    <button class="btn btn-outline" onclick="clearProdForm()">Annuler</button>
+                </div>
+                <div class="col card">
+                    <h3>Liste des produits</h3>
+                    <table id="productTable">
+                        <thead>
+                            <tr>
+                                <th>Photo</th>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ORDERS -->
+        <section class="section" id="section-orders">
+            <h1>Gestion des Commandes</h1>
+            <p style="color:var(--text-muted); margin-bottom:16px;">📦 Suivi en temps réel des livraisons</p>
+            <div class="card" style="overflow-x: auto;">
+                <table id="orderTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            <th>Client</th>
+                            <th>Produit</th>
+                            <th>Total</th>
+                            <th>Ville</th>
+                            <th>Livreur</th>
+                            <th>Statut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- BROADCAST -->
+        <section class="section" id="section-broadcast">
+            <h1>Broadcast Multi-Canal</h1>
+            <div class="row">
+                <div class="col card">
+                    <h3>✉️ Nouveau Message</h3>
+                    <label>Cible</label>
+                    <select id="bcPlatform">
+                        <option value="all">Tout le monde (All)</option>
+                        <option value="telegram">Telegram uniquement</option>
+                        <option value="whatsapp">WhatsApp uniquement</option>
+                    </select>
+
+                    <label>Texte du message (HTML autorisé pour Telegram)</label>
+                    <textarea id="bcMsg" style="height:150px;" placeholder="Votre message..."></textarea>
+
+                    <label>Template WhatsApp (Optionnel)</label>
+                    <input id="bcWaTemplate" placeholder="ex: hello_world">
+
+                    <button class="btn btn-primary" onclick="sendBC()">🚀 Lancer l'envoi</button>
+                </div>
+                <div class="col card">
+                    <h3>💡 Conseils</h3>
+                    <ul style="color:var(--text-secondary); line-height:1.6; padding-left:20px;">
+                        <li><b>Telegram</b> supporte le HTML (b, i, a, code).</li>
+                        <li><b>WhatsApp</b> requiert un <i>Template</i> si session > 24h.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="section" id="section-settings">
+            <h1>Paramètres & Customisation</h1>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
+                <div class="card">
+                    <h3>🤖 Bot Config</h3>
+                    <label>Nom du Projet</label><input id="set_bot_name">
+                    <label>Lien Contact Privé</label><input id="set_contact">
+                    <label>Lien Canal Telegram</label><input id="set_channel">
+                    <button class="btn btn-primary" onclick="saveSettings()">Sauvegarder</button>
+                </div>
+                <div class="card">
+                    <h3>🔐 Sécurité Administrateur</h3>
+                    <label>ID Telegram Administrateur</label><input id="set_admin_tg_id" placeholder="ex: 1183134641">
+                    <label>Mot de passe Dashboard</label><input type="password" id="set_admin_password"
+                        placeholder="Nouveau mot de passe">
+                    <p style="font-size:11px; color:var(--danger);">⚠️ Si vous changez le mot de passe, vous devrez vous
+                        reconnecter.</p>
+                </div>
+                <div class="card">
+                    <h3>🎨 Design Admin</h3>
+                    <label>Titre Dashboard</label><input id="set_title">
+                    <label>Couleur d'accent (Hex)</label><input type="color" id="set_color"
+                        style="height:50px; padding:2px;">
+                </div>
+                <div class="card">
+                    <h3>Message d'accueil</h3>
+                    <textarea id="set_welcome" style="height:150px;"></textarea>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const TOKEN = localStorage.getItem('admin_token');
+        if (!TOKEN) window.location.href = '/';
+
+        async function api(path, method = 'GET', body = null) {
+            const btn = event?.target;
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.disabled = true;
+                btn.dataset.oldText = btn.innerHTML;
+                btn.innerHTML = '⌛...';
+            }
+
+            try {
+                const opt = { method, headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' } };
+                if (body) opt.body = JSON.stringify(body);
+                const r = await fetch('/api' + path, opt);
+                if (!r.ok) {
+                    const err = await r.json();
+                    throw new Error(err.error || 'API Error');
+                }
+                return await r.json();
+            } finally {
+                if (btn && btn.tagName === 'BUTTON') {
+                    btn.disabled = false;
+                    btn.innerHTML = btn.dataset.oldText;
+                }
+            }
+        }
+
+        function switchSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const sec = document.getElementById('section-' + id);
+            if (sec) sec.classList.add('active');
+            const nav = document.getElementById('nav-' + id);
+            if (nav) nav.classList.add('active');
+            loadData(id);
+        }
+
+        async function loadData(id) {
+            document.body.style.opacity = '0.7';
+            try {
+                if (id === 'overview') {
+                    const s = await api('/stats');
+                    document.getElementById('statUsers').innerText = s.totalUsers;
+                    document.getElementById('statActive').innerText = s.activeUsers;
+                    document.getElementById('statOrders').innerText = s.totalOrders || 0;
+                    document.getElementById('statCA').innerText = (s.totalCA || 0) + ' €';
+                    document.getElementById('statLivreurs').innerText = s.activeLivreurs || 0;
+                }
+                if (id === 'users') {
+                    const u = await api('/users');
+                    document.getElementById('userTable').innerHTML = u.map(x => `
+                        <tr>
+                            <td><span class="platform-icon">${(x.platform || 'telegram') === 'telegram' ? '🤖' : '💬'}</span>${x.platform || 'TG'}</td>
+                            <td>
+                                <b>${x.first_name || 'Inconnu'}</b> 
+                                ${x.is_livreur ? `
+                                    <span style="cursor:pointer" onclick="toggleAvailability('${x.platform_id}', '${x.platform}', ${!x.is_available})">
+                                        ${x.is_available ? '🟢' : '😴'}
+                                    </span>` : ''}<br>
+                                <small style="color:var(--text-muted)">${x.platform_id}</small>
+                            </td>
+                            <td>@${x.username || '-'}</td>
+                            <td><span class="badge badge-accent">${x.referral_count || 0}</span></td>
+                            <td><span class="badge" style="background:rgba(34,197,94,0.1); color:var(--success)">${x.order_count || 0}</span></td>
+                            <td class="action-btns">
+                                <button class="btn ${x.is_livreur ? 'btn-danger' : 'btn-primary'}" onclick="toggleLivreur('${x.platform_id}', '${x.platform}', ${!x.is_livreur})">
+                                    ${x.is_livreur ? 'Retirer Livreur' : 'Promouvoir Livreur'}
+                                </button>
+                                <button class="btn btn-success" onclick="addOrder('${x.doc_id}')">🛍️</button>
+                                <button class="btn btn-danger" onclick="delUser('${x.doc_id}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                if (id === 'orders') {
+                    const orders = await api('/orders');
+                    document.querySelector('#orderTable tbody').innerHTML = orders.map(o => `
+                        <tr>
+                            <td><small>#${o.id.substring(0, 6)}</small></td>
+                            <td>${o.created_at ? new Date(o.created_at._seconds * 1000).toLocaleString() : '-'}</td>
+                            <td>${o.first_name}<br><small>@${o.username}</small></td>
+                            <td>${o.product_name} (x${o.quantity})</td>
+                            <td><b>${o.total_price} €</b></td>
+                            <td>${o.city}</td>
+                            <td>${o.livreur_name || '-'}</td>
+                            <td><span class="badge ${o.status === 'delivered' ? 'badge-success' : 'badge-accent'}">${o.status.toUpperCase()}</span></td>
+                            <td>
+                                <select onchange="updateOrderStatus('${o.id}', this.value)" style="margin:0; width:120px; padding:4px;">
+                                    <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>En attente</option>
+                                    <option value="taken" ${o.status === 'taken' ? 'selected' : ''}>Prise en charge</option>
+                                    <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Livrée</option>
+                                    <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Annulée</option>
+                                </select>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                if (id === 'products') {
+                    const p = await api('/products');
+                    document.querySelector('#productTable tbody').innerHTML = p.map(x => `
+                        <tr>
+                            <td>
+                                ${x.image_url ? `<img src="${x.image_url}" style="width:40px; height:40px; border-radius:4px; cursor:pointer;" onclick="window.open('${x.image_url}')">` : '<span style="color:var(--text-muted)">Pas d\'image</span>'}
+                            </td>
+                            <td>${x.name}</td>
+                            <td><b>${x.price} €</b></td>
+                            <td class="action-btns">
+                                <button class="btn btn-primary" onclick="editProd('${x.id}', '${x.name.replace(/'/g, "\\'")}', '${x.price}', '${x.image_url || ''}')">✏️</button>
+                                <button class="btn btn-danger" onclick="delProd('${x.id}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                if (id === 'settings') {
+                    const s = await api('/settings');
+                    document.getElementById('set_bot_name').value = s.bot_name;
+                    document.getElementById('set_welcome').value = s.welcome_message;
+                    document.getElementById('set_contact').value = s.private_contact_url;
+                    document.getElementById('set_channel').value = s.channel_url;
+                    document.getElementById('set_title').value = s.dashboard_title || 'Admin Project';
+                    document.getElementById('set_color').value = s.accent_color || '#6366f1';
+                    document.getElementById('set_admin_tg_id').value = s.admin_telegram_id || '';
+                    document.getElementById('set_admin_password').value = s.admin_password || '';
+                }
+            } catch (err) { console.error(err); }
+            finally { document.body.style.opacity = '1'; }
+        }
+
+        async function toggleAvailability(userId, platform, isAvailable) {
+            await api('/livreurs/availability', 'POST', { userId, platform, isAvailable });
+            loadData('users');
+        }
+
+        async function toggleLivreur(userId, platform, isLivreur) {
+            await api('/livreurs/status', 'POST', { userId, platform, isLivreur });
+            loadData('users');
+        }
+
+        async function updateOrderStatus(orderId, status) {
+            await api('/orders/status', 'POST', { orderId, status });
+            alert('✅ Statut de la commande mis à jour !');
+            loadData('orders');
+        }
+
+        async function delUser(id) {
+            if (!confirm('Voulez-vous vraiment supprimer cet utilisateur ?')) return;
+            await api('/users/delete', 'POST', { id });
+            loadData('users');
+        }
+
+        async function addOrder(id) {
+            await api('/users/order', 'POST', { id });
+            loadData('users');
+        }
+
+        async function saveProduct() {
+            const id = document.getElementById('prod_id').value;
+            const name = document.getElementById('prod_name').value;
+            const price = document.getElementById('prod_price').value;
+            const image_url = document.getElementById('prod_image').value;
+            if (!name || !price) return alert('Veuillez remplir tous les champs');
+            await api('/products', 'POST', { id, name, price, image_url });
+            clearProdForm();
+            loadData('products');
+        }
+
+        async function delProd(id) {
+            if (!confirm('Supprimer ce produit ?')) return;
+            await api('/products/' + id, 'DELETE');
+            loadData('products');
+        }
+
+        function editProd(id, name, price, image_url) {
+            document.getElementById('prod_id').value = id;
+            document.getElementById('prod_name').value = name;
+            document.getElementById('prod_price').value = price;
+            document.getElementById('prod_image').value = image_url || '';
+        }
+
+        function clearProdForm() {
+            document.getElementById('prod_id').value = '';
+            document.getElementById('prod_name').value = '';
+            document.getElementById('prod_price').value = '';
+            document.getElementById('prod_image').value = '';
+        }
+
+        async function saveSettings() {
+            try {
+                const newPass = document.getElementById('set_admin_password').value;
+                await api('/settings', 'POST', {
+                    bot_name: document.getElementById('set_bot_name').value,
+                    welcome_message: document.getElementById('set_welcome').value,
+                    private_contact_url: document.getElementById('set_contact').value,
+                    channel_url: document.getElementById('set_channel').value,
+                    dashboard_title: document.getElementById('set_title').value,
+                    accent_color: document.getElementById('set_color').value,
+                    admin_telegram_id: String(document.getElementById('set_admin_tg_id').value),
+                    admin_password: newPass
+                });
+
+                if (newPass && newPass !== TOKEN) {
+                    alert('Le mot de passe a changé. Reconnexion requise.');
+                    logout();
+                } else {
+                    alert('✅ Paramètres sauvegardés !');
+                    loadData('settings');
+                }
+            } catch (err) { alert(err.message); }
+        }
+
+        async function sendBC() {
+            try {
+                const msg = document.getElementById('bcMsg').value;
+                const platform = document.getElementById('bcPlatform').value;
+                const template = document.getElementById('bcWaTemplate').value;
+                if (!msg && !template) return alert('Message ou Template requis !');
+                if (!confirm("Envoyer ce broadcast à tous les utilisateurs ?")) return;
+
+                await api('/broadcast', 'POST', { message: msg, platform, template });
+                alert('🚀 Broadcast lancé !');
+                document.getElementById('bcMsg').value = '';
+            } catch (err) { alert(err.message); }
+        }
+
+        function logout() { localStorage.removeItem('admin_token'); window.location.href = '/'; }
+
+        // Initial load
+        loadData('overview');
+        api('/settings').then(s => {
+            if (s.accent_color) document.documentElement.style.setProperty('--accent', s.accent_color);
+            if (s.dashboard_title) document.getElementById('sidebarTitle').innerText = s.dashboard_title;
+        }).catch(() => { });
+    </script>
+</body>
+
+</html>
