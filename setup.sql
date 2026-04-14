@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS bot_users (
     blocked_at TIMESTAMPTZ,
     is_approved BOOLEAN DEFAULT FALSE,
     is_admin BOOLEAN DEFAULT FALSE,
+    is_moderateur BOOLEAN DEFAULT FALSE,
     referred_by TEXT REFERENCES bot_users(id),
     referral_count INT DEFAULT 0,
     order_count INT DEFAULT 0,

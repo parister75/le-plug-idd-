@@ -983,8 +983,23 @@ function createServer() {
         if (!platformId || !role) return res.status(400).json({ error: 'Données manquantes' });
 
         try {
-            const { getAppSettings, updateAppSettings } = require('./services/database');
+            const { getAppSettings, updateAppSettings, updateUserField } = require('./services/database');
             const settings = await getAppSettings();
+            
+            if (role === 'moderator') {
+                // Consistency: update bot_users record AND global settings (for bot logic if needed)
+                await updateUserField(platformId, 'is_moderateur', action === 'add');
+                
+                let currentIds = String(settings.list_moderators || '').split(/[\s,]+/).map(id => id.trim()).filter(id => id.length > 0);
+                if (action === 'add') {
+                    if (!currentIds.includes(String(platformId))) currentIds.push(String(platformId));
+                } else {
+                    currentIds = currentIds.filter(id => id !== String(platformId));
+                }
+                await updateAppSettings({ list_moderators: currentIds.join(', ') });
+                return res.json({ success: true, ids: currentIds });
+            }
+
             const field = role === 'admin' ? 'admin_telegram_id' : 'list_moderators';
             let currentIds = String(settings[field] || '').split(/[\s,]+/).map(id => id.trim()).filter(id => id.length > 0);
 
