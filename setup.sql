@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS bot_orders (
     supplier_prep_time TEXT,
     supplier_id TEXT,
     delivered_at TIMESTAMPTZ,
-    is_priority BOOLEAN DEFAULT FALSE
+    is_priority BOOLEAN DEFAULT FALSE,
+    livreur_name TEXT
 );
 
 -- 4. SETTINGS

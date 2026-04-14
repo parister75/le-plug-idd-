@@ -79,55 +79,61 @@ async function populate() {
             name: 'Bananes Bio (1kg)',
             price: 2.50,
             category: 'Fruits',
-            image_url: 'https://images.unsplash.com/photo-1571771894821-ad9902621ec0?auto=format&fit=crop&w=800&q=80',
+            image_url: JSON.stringify(['https://images.unsplash.com/photo-1571771894821-ad9902621ec0?auto=format&fit=crop&w=800&q=80']),
             description: 'Bananes fraîches et biologiques, parfaites pour vos smoothies.',
             stock: 100,
-            unit: 'kg'
+            unit: 'kg',
+            priority: 1
         },
         {
             id: 'prod_flour',
             name: 'Farine de Blé T55',
             price: 1.80,
             category: 'Épicerie',
-            image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
+            image_url: JSON.stringify(['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']),
             description: 'Farine de qualité supérieure pour toutes vos pâtisseries.',
             stock: 50,
-            unit: 'pièce'
+            unit: 'pièce',
+            priority: 2
         },
         {
             id: 'prod_milk',
             name: 'Lait Entier Bio (1L)',
             price: 1.45,
             category: 'Frais',
-            image_url: 'https://images.unsplash.com/photo-1563636619-e9108b901977?auto=format&fit=crop&w=800&q=80',
+            image_url: JSON.stringify(['https://images.unsplash.com/photo-1563636619-e9108b901977?auto=format&fit=crop&w=800&q=80']),
             description: 'Lait frais de ferme, pasteurisé et riche en goût.',
             stock: 80,
-            unit: 'pièce'
+            unit: 'pièce',
+            priority: 3
         },
         {
             id: 'prod_eggs',
             name: 'Œufs Frais x12',
             price: 3.20,
             category: 'Frais',
-            image_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+            image_url: JSON.stringify(['https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80']),
             description: 'Douzaine d\'œufs de poules élevées en plein air.',
             stock: 40,
-            unit: 'boîte'
+            unit: 'boîte',
+            priority: 4
         },
         {
             id: 'prod_bread',
             name: 'Baguette Tradition',
             price: 1.20,
             category: 'Boulangerie',
-            image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
+            image_url: JSON.stringify(['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']),
             description: 'Croustillante et cuite au feu de bois.',
             stock: 30,
-            unit: 'pièce'
+            unit: 'pièce',
+            priority: 5
         }
     ];
 
     for (const p of products) {
-        await supabase.from('bot_products').upsert({ ...p, is_active: true });
+        await supabase.from('bot_products').delete().eq('id', p.id); // Delete old version first
+        await supabase.from('bot_products').insert({ ...p, is_active: true, supplier_id: null });
     }
 
     // 3. Demo Users
@@ -177,6 +183,7 @@ async function populate() {
 
         if (status === 'delivered') tryAdd('delivered_at', new Date(new Date(date).getTime() + 3600000).toISOString());
         tryAdd('is_priority', Math.random() > 0.8);
+        tryAdd('livreur_name', 'Thomas (Livreur Test)');
         tryAdd('updated_at', date);
         tryAdd('items', `${product.name} x${qty}`);
         tryAdd('address', `${Math.floor(Math.random() * 100) + 1} Rue de la Demo`);
