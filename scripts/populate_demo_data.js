@@ -171,11 +171,12 @@ async function populate() {
             created_at: date
         };
 
-        // Add optional fields only if we detected them or if detection failed (guessing)
         const tryAdd = (key, val) => {
-            if (orderCols.length === 0 || orderCols.includes(key)) orderData[key] = val;
+            if (orderCols.length === 0 || orderCols.includes(key) || ['delivered_at', 'is_priority'].includes(key)) orderData[key] = val;
         };
 
+        if (status === 'delivered') tryAdd('delivered_at', new Date(new Date(date).getTime() + 3600000).toISOString());
+        tryAdd('is_priority', Math.random() > 0.8);
         tryAdd('updated_at', date);
         tryAdd('items', `${product.name} x${qty}`);
         tryAdd('address', `${Math.floor(Math.random() * 100) + 1} Rue de la Demo`);
