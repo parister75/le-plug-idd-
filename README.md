@@ -1,4 +1,4 @@
-# 🤖 Ma Boutique Telegram (V5)
+# 🤖 monshopbot (V5)
 
 Un bot Telegram robuste conçu avec **Node.js (Telegraf)** et **Supabase**, incluant une **interface web d'administration premium**.
 
@@ -12,7 +12,7 @@ Un bot Telegram robuste conçu avec **Node.js (Telegraf)** et **Supabase**, incl
 - **Suivi de commande** : Notifications en temps réel lors du changement d'état d'une commande.
 
 ### 🛠 Administration (Bot & Web)
-- **Ma Boutique Telegram** : Statistiques en temps réel, graphiques d'inscription (Chart.js), gestion des utilisateurs et des commandes.
+- **monshopbot** : Statistiques en temps réel, graphiques d'inscription (Chart.js), gestion des utilisateurs et des commandes.
 - **Système de Broadcast** : 
   - Envoi à TOUS les utilisateurs (y compris ceux ayant supprimé le bot, avec détection automatique).
   - Statistiques précises : Succès, Échecs, Nouveaux Bloqués, Déjà Bloqués.

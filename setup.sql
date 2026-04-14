@@ -1,4 +1,4 @@
--- 🤖 SETUP SQL FOR MA BOUTIQUE TELEGRAM (MA BOUTIQUE)
+-- 🤖 SETUP SQL FOR monshopbot (monshopbot)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 1. BOT USERS
@@ -356,7 +356,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Default Settings (Partial insertion, app will auto-repair missing fields)
 INSERT INTO bot_settings (id, bot_name, dashboard_title, admin_password) 
-VALUES ('default', 'Ma Boutique Telegram', 'Ma Boutique Telegram', 'admin0123456789')
+VALUES ('default', 'monshopbot', 'monshopbot', 'admin0123456789')
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage Bucket (Must be done via UI or SQL if supported)

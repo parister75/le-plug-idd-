@@ -113,7 +113,7 @@ async function showAdminMenu(ctx, isEdit = false) {
     const user = await require('../services/database').getUser(userId);
     const stats = await getStatsOverview();
 
-    const text = t(user, 'label_admin_console', `🛠 <b>Ma Boutique Telegram</b>`) + `\n\n` +
+    const text = t(user, 'label_admin_console', `🛠 <b>monshopbot</b>`) + `\n\n` +
         t(user, 'msg_admin_welcome', `Bienvenue dans votre gestionnaire intégré.`) + `\n` +
         t(user, 'label_total_users', `Utilisateurs :`) + ` <b>${stats.totalUsers}</b>\n` +
         t(user, 'label_total_ca', `Ventes totales :`) + ` <b>${stats.totalCA}€</b>\n\n` +
@@ -961,7 +961,7 @@ function setupAdminHandlers(bot) {
             [Markup.button.callback(s.welcome_message_enabled !== false ? '👋 Désactiver Bienvenue' : '👋 Activer Bienvenue', 'admin_toggle_welcome')],
             [Markup.button.callback('📢 Changer Lien Canal', 'admin_set_channel')],
             [Markup.button.callback('📱 Changer Contact Admin', 'admin_set_contact')],
-            [Markup.button.url('🌐 Ma Boutique Telegram', s.dashboard_url || 'https://google.com')],
+            [Markup.button.url('🌐 monshopbot', s.dashboard_url || 'https://google.com')],
             [Markup.button.callback('◀️ Retour', 'admin_menu')]
         ]));
     });
@@ -1192,14 +1192,14 @@ function setupAdminHandlers(bot) {
             `• Envoyer un message à tous les utilisateurs non bloqués en 1 clic\n` +
             `• Supporte texte + médias (photos, vidéos) en pièces jointes\n` +
             `• Envoi par lots pour respecter les limites Telegram\n\n` +
-            `<b>Depuis Ma Boutique Telegram :</b>\n` +
+            `<b>Depuis monshopbot :</b>\n` +
             `• Onglet "Diffusion" : rédiger le message, joindre des médias, envoyer\n` +
             `• Historique des diffusions (succès, échecs, bloqués)\n\n` +
             `<b>Depuis le Bot :</b>\n` +
-            `• "Diffusion Message" dans le menu admin → redirige vers Ma Boutique Telegram\n\n` +
+            `• "Diffusion Message" dans le menu admin → redirige vers monshopbot\n\n` +
             `<b>Message Automatique :</b>\n` +
             `• Un message configurable est envoyé automatiquement toutes les 6h\n` +
-            `• Configurable dans les paramètres de Ma Boutique Telegram (champ "Message auto timer")`,
+            `• Configurable dans les paramètres de monshopbot (champ "Message auto timer")`,
             Markup.inlineKeyboard([[Markup.button.callback('◀️ Retour Fonctionnalités', 'admin_features')]])
         );
     });
@@ -1216,7 +1216,7 @@ function setupAdminHandlers(bot) {
             `• CA par jour, semaine, mois\n` +
             `• Top produits vendus\n` +
             `• Temps moyen de livraison\n\n` +
-            `<b>Ma Boutique Telegram :</b>\n` +
+            `<b>monshopbot :</b>\n` +
             `• Vue d'ensemble avec compteurs en temps réel\n` +
             `• Onglet Commandes : liste, filtres, détails\n` +
             `• Onglet Utilisateurs : recherche, profils, bannissement\n` +
@@ -1236,7 +1236,7 @@ function setupAdminHandlers(bot) {
             `• "Gestion Utilisateurs" : rechercher un utilisateur par nom ou ID\n` +
             `• Voir le profil complet (commandes, points, wallet)\n` +
             `• Bloquer / Débloquer un utilisateur\n\n` +
-            `<b>Depuis Ma Boutique Telegram :</b>\n` +
+            `<b>Depuis monshopbot :</b>\n` +
             `• Liste complète avec recherche\n` +
             `• Modifier le solde, les points, le statut livreur\n` +
             `• Voir l'historique des commandes par utilisateur\n\n` +
@@ -1267,8 +1267,8 @@ function setupAdminHandlers(bot) {
             `• Description du bot (carte de partage Telegram)\n\n` +
             `<b>Accès :</b>\n` +
             `• ID Telegram de l'admin (notifications)\n` +
-            `• Mot de passe de Ma Boutique Telegram\n` +
-            `• Tous les paramètres sont modifiables en temps réel depuis Ma Boutique Telegram`,
+            `• Mot de passe de monshopbot\n` +
+            `• Tous les paramètres sont modifiables en temps réel depuis monshopbot`,
             Markup.inlineKeyboard([[Markup.button.callback('◀️ Retour Fonctionnalités', 'admin_features')]])
         );
     });
