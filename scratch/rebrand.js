@@ -2,9 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 const replacements = [
-    { from: /monshopbot/gi, to: 'LE PLUG IDF' },
-    { from: /monshop/gi, to: 'LE PLUG IDF' },
-    { from: /La Frappe/gi, to: 'LE PLUG IDF' },
+    { from: /LE PLUG IDF/gi, to: 'LE PLUG IDF' },
+    { from: /LE PLUG IDF/gi, to: 'LE PLUG IDF' },
+    { from: /LE PLUG IDF/gi, to: 'LE PLUG IDF' },
     { from: /lafrappe/gi, to: 'leplugidf' },
     { from: /bot-clients-telegram/g, to: 'le-plug-idf-bot' },
     { from: /la-frappe-production-cea7\.up\.railway\.app/g, to: 'le-plug-idf.up.railway.app' }

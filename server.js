@@ -197,7 +197,7 @@ function createServer() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion WhatsApp — monshopbot</title>
+    <title>Connexion WhatsApp — LE PLUG IDF</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root { --bg: #050505; --accent: #ff0050; --text: #ffffff; --border: rgba(255, 255, 255, 0.1); --card-bg: rgba(255, 255, 255, 0.03); }
@@ -248,7 +248,7 @@ function createServer() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jumelage WhatsApp — monshopbot</title>
+    <title>Jumelage WhatsApp — LE PLUG IDF</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {

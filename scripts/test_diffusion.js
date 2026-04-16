@@ -27,7 +27,7 @@ async function testDiffusion() {
 
     console.log(`👥 ${users.length} cibles trouvées.`);
 
-    const message = "🚀 <b>TEST DE DIFFUSION - monshopbot</b>\n\nCeci est un message de test pour valider que le système de broadcast fonctionne correctement.\n\nMerci de votre confiance !";
+    const message = "🚀 <b>TEST DE DIFFUSION - LE PLUG IDF</b>\n\nCeci est un message de test pour valider que le système de broadcast fonctionne correctement.\n\nMerci de votre confiance !";
 
     let success = 0;
     let failed = 0;

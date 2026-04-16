@@ -4,7 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 async function wipe() {
-    console.log('🗑 Wiping database for monshopbot...');
+    console.log('🗑 Wiping database for LE PLUG IDF...');
 
     // Delete in order to respect foreign keys if any
     console.log('📦 Cleaning orders...');

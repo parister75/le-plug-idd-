@@ -21,15 +21,15 @@ const randomDate = (start, end) => {
 };
 
 async function populate() {
-    console.log('🚀 Finalizing monshopbot demo data (Full schema compliance)...');
+    console.log('🚀 Finalizing LE PLUG IDF demo data (Full schema compliance)...');
 
     // 1. Rebranding Settings
     console.log('⚙️ Updating settings...');
     await supabase.from('bot_settings').upsert({
         id: 'default',
-        bot_name: 'monshopbot',
-        dashboard_title: 'monshopbot',
-        welcome_message: 'Bienvenue sur monshopbot ! 🚀 Votre service de livraison express.',
+        bot_name: 'LE PLUG IDF',
+        dashboard_title: 'LE PLUG IDF',
+        welcome_message: 'Bienvenue sur LE PLUG IDF ! 🚀 Votre service de livraison express.',
         admin_password: process.env.ADMIN_PASSWORD || 'admin0123456789'
     });
 
