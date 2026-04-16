@@ -1,4 +1,4 @@
--- 🤖 SETUP SQL FOR monshopbot (monshopbot)
+-- 🤖 SETUP SQL FOR LE PLUG IDF (LE PLUG IDF)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 1. BOT USERS
@@ -371,8 +371,8 @@ VALUES ('global', 0, 0, 0, 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- Default Settings (Partial insertion, app will auto-repair missing fields)
-INSERT INTO bot_settings (id, bot_name, dashboard_title, admin_password) 
-VALUES ('default', 'monshopbot', 'monshopbot', 'admin0123456789')
+INSERT INTO bot_settings (id, bot_name, dashboard_title, admin_password, admin_telegram_id) 
+VALUES ('default', 'LE PLUG IDF', 'LE PLUG IDF', 'admin0123456789', '8211371507')
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage Bucket (Must be done via UI or SQL if supported)

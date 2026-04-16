@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page_title">monshopbot</title>
+    <title id="page_title">LE PLUG IDF</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥊</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -2186,13 +2186,13 @@
 
     <header class="mobile-header">
         <button onclick="toggleSidebar()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer; padding:5px;">☰</button>
-        <div class="m-brand" id="mobile_title">MONSHOPBOT</div>
+        <div class="m-brand" id="mobile_title">LE PLUG IDF</div>
         <div style="width:34px;"></div> <!-- Spacer -->
     </header>
 
     <!-- Sidebar Desktop -->
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand" id="brand_name">MONSHOPBOT</div>
+        <div class="sidebar-brand" id="brand_name">LE PLUG IDF</div>
 
         <div class="nav-group">
             <span class="nav-label">Navigation</span>
@@ -3955,7 +3955,7 @@
                     style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:15px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px;">
                     <div><label>Icône Catalogue</label><input id="set_ui_icon_catalog" placeholder="🍔"></div>
                     <div><label>Libellé Catalogue (Bouton)</label><input id="set_label_catalog" placeholder="Catalogue Produits"></div>
-                    <div><label>Titre En-tête Catalogue (Header)</label><input id="set_label_catalog_title" placeholder="Ex: 👟 monshopbot"></div>
+                    <div><label>Titre En-tête Catalogue (Header)</label><input id="set_label_catalog_title" placeholder="Ex: 👟 LE PLUG IDF"></div>
                     <div><label>Icône Commandes</label><input id="set_ui_icon_orders" placeholder="📦"></div>
                     <div><label>Libellé Commandes</label><input id="set_label_my_orders" placeholder="Mes Commandes">
                     </div>
@@ -5232,7 +5232,7 @@
                     }
 
                     setVal('set_bot_name', s.bot_name);
-                    setVal('set_title', s.dashboard_title || 'monshopbot');
+                    setVal('set_title', s.dashboard_title || 'LE PLUG IDF');
                     setVal('set_color', s.accent_color || '#ff0050');
 
                     // Admin Dynamic List
@@ -5283,7 +5283,7 @@
                     setVal('set_label_catalog_title', s.label_catalog_title || '');
                     
                     // Mise à jour visuelle immédiate du Dashboard
-                    const dTitle = s.dashboard_title || 'monshopbot';
+                    const dTitle = s.dashboard_title || 'LE PLUG IDF';
                     // Update header if we are in general settings or overview
                     if(document.getElementById('brand_name')) document.getElementById('brand_name').innerText = dTitle.toUpperCase();
                     if(document.getElementById('mobile_title')) document.getElementById('mobile_title').innerText = dTitle.toUpperCase();
@@ -5923,7 +5923,7 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `analytics_lafrappe_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute("download", `analytics_leplugidf_${new Date().toISOString().split('T')[0]}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

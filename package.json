@@ -1,5 +1,5 @@
 {
-  "name": "bot-clients-telegram",
+  "name": "le-plug-idf-bot",
   "version": "1.0.0",
   "description": "Bot Telegram avec interface admin, broadcast, parrainage et statistiques",
   "main": "index.js",

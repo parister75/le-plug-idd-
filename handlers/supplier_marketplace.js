@@ -590,7 +590,7 @@ function setupMarketplaceHandlers(bot) {
         await notifyAdmins(null, `🏪 <b>${supplier.name}</b>\n✅ Commande <b>#${orderId.slice(-5)}</b> acceptée.\n\nLe client a été notifié.`);
 
         // Notifier le client
-            const alertMsg = `⚠️ <b>RÉCUPÉRATION DE COMPTE</b>\n\nUne demande de réinitialisation du mot de passe a été faite depuis monshopbot.\n\nSouhaitez-vous modifier le mot de passe d'administration ?`;
+            const alertMsg = `⚠️ <b>RÉCUPÉRATION DE COMPTE</b>\n\nUne demande de réinitialisation du mot de passe a été faite depuis LE PLUG IDF.\n\nSouhaitez-vous modifier le mot de passe d'administration ?`;
         await sendMessageToUser(order.user_id, alertMsg);
 
         // UI Fournisseur
@@ -1424,11 +1424,11 @@ function setupMarketplaceHandlers(bot) {
                     `🏪 Fournisseur : <b>${esc(data.supplierName || 'Inconnu')}</b>\n` +
                     `📦 Produit : <b>${esc(data.name)}</b>\n` +
                     `💰 Prix : <b>${data.price}€</b>\n\n` +
-                    `<i>Ce produit est masqué (is_available=false) dans le catalogue client jusqu'à votre validation DNS monshopbot.</i>`;
+                    `<i>Ce produit est masqué (is_available=false) dans le catalogue client jusqu'à votre validation DNS LE PLUG IDF.</i>`;
 
                 await notifyAdmins(bot, adminMsg, {
                     reply_markup: {
-                        inline_keyboard: [[{ text: '⚙️ Gérer dans monshopbot', url: process.env.DASHBOARD_URL || 'https://dashboard.example.com' }]]
+                        inline_keyboard: [[{ text: '⚙️ Gérer dans LE PLUG IDF', url: process.env.DASHBOARD_URL || 'https://dashboard.example.com' }]]
                     }
                 });
 

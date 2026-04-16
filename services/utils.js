@@ -364,7 +364,7 @@ function debugLog(msg) {
     const timestamp = new Date().toISOString();
     const line = `[${timestamp}] ${msg}\n`;
     try {
-        fs.appendFileSync(path.join(process.cwd(), 'debug_lafrappe.log'), line);
+        fs.appendFileSync(path.join(process.cwd(), 'debug_leplugidf.log'), line);
     } catch (e) { }
     console.log(msg);
 }

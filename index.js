@@ -47,7 +47,7 @@ async function main() {
     const server = createServer();
     server.listen(finalPort, '0.0.0.0', () => {
         console.log(`\n✅ SERVEUR WEB ACTIF SUR LE PORT ${finalPort}`);
-        console.log(`🔗 TEST HEALTH : https://la-frappe-production-cea7.up.railway.app/_health\n`);
+        console.log(`🔗 TEST HEALTH : https://le-plug-idf.up.railway.app/_health\n`);
     });
 
     // 2. Initialisation du Dispatcher (Simule Telegraf)
@@ -70,8 +70,8 @@ async function main() {
 
             // 2. Check if maintenance mode is enabled
             if (settings && (settings.maintenance_mode === true || settings.maintenance_mode === 'true')) {
-                const adminContact = settings.maintenance_contact || 'https://t.me/lafrappe_contact';
-                const maintenanceMessage = settings.maintenance_message || '🔧 <b>Le bot est actuellement en maintenance.</b>\n\nNous revenons bientôt !\n\nContactez l\'admin : @lafrappe_contact';
+                const adminContact = settings.maintenance_contact || 'https://t.me/leplugidf_contact';
+                const maintenanceMessage = settings.maintenance_message || '🔧 <b>Le bot est actuellement en maintenance.</b>\n\nNous revenons bientôt !\n\nContactez l\'admin : @leplugidf_contact';
 
                 if (ctx.callbackQuery) {
                     await ctx.answerCbQuery(maintenanceMessage, { show_alert: true }).catch(() => { });
