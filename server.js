@@ -733,15 +733,30 @@ function createServer() {
                 const now = Date.now();
                 if (now - lastCatalogNotificationTime > CATALOG_NOTIFICATION_COOLDOWN) {
                     const settings = await getAppSettings();
-                    const msg = settings?.msg_auto_timer || '🔥 <b>Le catalogue est à jour !</b>';
+                    const msg = (settings?.msg_auto_timer || '🔥 <b>Le catalogue est à jour !</b>') + (req.body.name ? `\n\n<b>Nouveauté :</b> ${req.body.name}` : '');
                     
-                    // On broadcast à tous les utilisateurs
-                    broadcastMessage('users', msg).catch(err => {
+                    // Extraction des médias pour la notification
+                    let mediaUrls = [];
+                    if (req.body.image_url) {
+                        try {
+                            const parsed = JSON.parse(req.body.image_url);
+                            if (Array.isArray(parsed)) {
+                                mediaUrls = parsed.map(m => typeof m === 'string' ? { url: m, type: 'photo' } : m);
+                            } else {
+                                mediaUrls = [typeof parsed === 'string' ? { url: parsed, type: 'photo' } : parsed];
+                            }
+                        } catch (e) {
+                            mediaUrls = [{ url: req.body.image_url, type: 'photo' }];
+                        }
+                    }
+
+                    // On broadcast à tous les utilisateurs avec les médias du produit
+                    broadcastMessage('users', msg, { mediaUrls: mediaUrls.slice(0, 1) }).catch(err => {
                         console.error('[Auto-Notif] Broadcast failed:', err.message);
                     });
                     
                     lastCatalogNotificationTime = now;
-                    console.log(`[Auto-Notif] Notification "Catalogue à jour" envoyée car nouveau produit #${id} ajouté.`);
+                    console.log(`[Auto-Notif] Notification "Catalogue à jour" (avec média) envoyée car nouveau produit #${id} ajouté.`);
                 } else {
                     console.log(`[Auto-Notif] Notification ignorée (cooldown actif).`);
                 }
@@ -830,7 +845,15 @@ function createServer() {
             }
 
             const file = req.files.file;
-            const ext = path.extname(file.name) || (file.mimetype.includes('video') ? '.mp4' : '.jpg');
+            let ext = path.extname(file.name).toLowerCase();
+            
+            // Normalisation de l'extension si absente ou problématique pour les vidéos
+            if (!ext || ext === '.quicktime') {
+                if (file.mimetype.includes('video')) ext = '.mp4';
+                else if (file.mimetype.includes('image')) ext = '.jpg';
+                else ext = '.bin';
+            }
+            
             const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
 
             console.log(`[UPLOAD] Fichier reçu: ${file.name} (mime=${file.mimetype}, size=${file.size}, dataLen=${file.data?.length || 0}, tempFile=${file.tempFilePath || 'none'})`);
@@ -878,7 +901,7 @@ function createServer() {
             const { error } = await supabase.storage
                 .from('uploads')
                 .upload(fileName, fileBuf, {
-                    contentType: file.mimetype,
+                    contentType: file.mimetype === 'video/quicktime' ? 'video/mp4' : file.mimetype,
                     upsert: true
                 });
 

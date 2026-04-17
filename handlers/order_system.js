@@ -50,14 +50,17 @@ function getAllMediaUrls(product) {
         if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.substring(1, raw.length - 1);
     }
 
+    const videoExtRegex = /\.(mp4|mov|avi|wmv|webm|mkv)(\?.*)?$/i;
+
     // Handle JSON array format: [{"url":"...", "type":"photo"}, ...]
     if (typeof raw === 'string' && raw.startsWith('[') && raw.endsWith(']')) {
         try {
             const arr = JSON.parse(raw);
             if (Array.isArray(arr) && arr.length > 0) {
                 return arr.map(item => {
-                    if (typeof item === 'string') return { url: item, type: 'photo' };
-                    return { url: item.url || item.image_url, type: item.type || 'photo' };
+                    const url = typeof item === 'string' ? item : (item.url || item.image_url);
+                    const type = typeof item === 'object' && item.type ? item.type : (url && url.match(videoExtRegex) ? 'video' : 'photo');
+                    return { url, type };
                 }).filter(m => m.url);
             }
         } catch (e) { }
@@ -67,13 +70,15 @@ function getAllMediaUrls(product) {
     if (typeof raw === 'string' && raw.startsWith('{') && raw.endsWith('}')) {
         try {
             const obj = JSON.parse(raw);
-            const u = obj.url || obj.image_url;
-            return u ? [{ url: u, type: obj.type || 'photo' }] : [];
+            const url = obj.url || obj.image_url;
+            const type = obj.type || (url && url.match(videoExtRegex) ? 'video' : 'photo');
+            return url ? [{ url, type }] : [];
         } catch (e) {}
     }
 
     // Plain URL string
-    return raw ? [{ url: raw, type: 'photo' }] : [];
+    const type = raw.match(videoExtRegex) ? 'video' : 'photo';
+    return raw ? [{ url: raw, type }] : [];
 }
 
 async function initOrderState() {
