@@ -6056,19 +6056,6 @@
                 'auto_approve_new', 'notify_on_approval'
             ];
             dynFields.forEach(key => setVal('set_' + key, s[key]));
-
-            // Custom Links Initialization
-            const clContainer = document.getElementById('custom_links_container');
-            if (clContainer) {
-                clContainer.innerHTML = '';
-                let cLinks = [];
-                try {
-                    cLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
-                } catch (e) { console.error('Parse custom_links failed', e); }
-                if (cLinks && Array.isArray(cLinks)) {
-                    cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
-                }
-            }
         }
 
         function togglePassVisibility(id) {
@@ -7181,20 +7168,20 @@
 
                 await api('/settings', 'POST', s);
                 showToast('Paramètres mis à jour !', 'success');
-                
-                // Confirmation visuelle & Rafraîchissement direct des liens
+
+                // Mise à jour immédiate : fusionner les nouvelles valeurs dans appSettings et re-rendre
+                window.appSettings = { ...(window.appSettings || {}), ...s };
+                renderSettingsUI(window.appSettings);
+                updateNavbarIcons();
+
+                // Animation de confirmation visuelle
                 const clContainer = document.getElementById('custom_links_container');
                 if (clContainer) {
                     clContainer.classList.remove('pulse-success');
-                    void clContainer.offsetWidth; // Force reflow
+                    void clContainer.offsetWidth;
                     clContainer.classList.add('pulse-success');
                 }
-
-                // Recharger les settings depuis le serveur pour confirmation et RE-RAFRAICHIR l'UI
-                window.appSettings = await api('/settings', 'GET', null, true);
-                renderSettingsUI(window.appSettings);
-                updateNavbarIcons();
-            } catch (err) { showToast(err.message, 'error'); }
+            } catch (err) { showToast(err.message || 'Erreur lors de la sauvegarde', 'error'); }
         }
 
         async function toggleLivreur(platformId, platform, isLivreur) {
