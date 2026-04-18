@@ -7601,7 +7601,25 @@
                             ${p.description ? '<p style="font-size:12px; color:var(--text-muted); margin:4px 0 8px;">' + p.description.substring(0, 80) + '</p>' : ''}
                             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                                 <div class="mp-qty-selector" style="display:flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; background: rgba(255,255,255,0.05);">
-                                    async function promoteMpProduct(id) {
+                                    <button class="btn btn-sm" style="background:none; border:none; border-radius:0; width:30px; padding:0; color:#fff; font-size:18px; line-height:1;" onclick="const inp=document.getElementById('qty-mp-${p.id}'); if(inp.value>1)inp.value--;">-</button>
+                                    <input type="number" value="1" min="1" id="qty-mp-${p.id}" 
+                                        style="width:40px; text-align:center; background:none; border:none; color:#fff !important; font-size:16px; font-weight:800; padding:4px 0; margin:0;"
+                                        oninput="if(this.value<1)this.value=1;">
+                                    <button class="btn btn-sm" style="background:none; border:none; border-radius:0; width:30px; padding:0; color:#fff; font-size:18px; line-height:1;" onclick="const inp=document.getElementById('qty-mp-${p.id}'); inp.value++;">+</button>
+                                </div>
+                                <button class="btn btn-sm btn-accent" onclick="addWithQty('${p.id}')" style="flex:1; border-radius:10px; height: 36px; font-weight: 700;">🛒 Ajouter</button>
+                            </div>
+                            <div style="display:flex; gap:6px; margin-top:8px;">
+                                <button class="btn btn-sm btn-outline" style="flex:1;" onclick="editMpProduct('${p.id}')">✏️ Edit</button>
+                                <button class="btn btn-sm btn-outline" style="flex:1; border-color:var(--accent); color:var(--accent);" onclick="promoteMpProduct('${p.id}')">✨ Publier au Catalogue Client</button>
+                                <button class="btn btn-sm btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="deleteMpProduct('${p.id}')">🗑</button>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function promoteMpProduct(id) {
             const ok = await showConfirmModal("Promotion Boutique", "Voulez-vous mettre ce produit en vente dans le Catalogue Client (Vente au détail) ?\n\nLe produit sera transféré du Marché (Gros) vers la boutique publique.");
             if (!ok) return;
             try {
@@ -7637,47 +7655,6 @@
                 showToast('🗑 Produit supprimé', 'success');
                 loadMarketplaceProducts();
             } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
-        }       </div>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-
-        async function promoteMpProduct(id) {
-            if (!confirm("Voulez-vous mettre ce produit en vente dans le Catalogue Client (Vente au détail) ?\n\nLe produit sera transféré du Marché (Gros) vers la boutique publique.")) return;
-            try {
-                const res = await api(`/marketplace/products/${id}/transfer`, 'POST');
-                showToast('✅ Produit transféré avec succès au catalogue !', 'success');
-                loadMarketplaceProducts();
-            } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
-        }
-
-        async function editMpProduct(id) {
-            const p = mpProductsData.find(x => x.id === id);
-            if (!p) return;
-            const newPrice = prompt('Nouveau prix :', p.price);
-            if (newPrice === null) return;
-            const newStock = prompt('Nouveau stock :', p.stock);
-            if (newStock === null) return;
-            try {
-                await api('/marketplace/products', 'POST', {
-                    id: p.id,
-                    price: parseFloat(newPrice) || p.price,
-                    stock: parseInt(newStock) || p.stock,
-                    is_available: parseInt(newStock) > 0
-                }, true);
-                showToast('✅ Produit mis à jour', 'success');
-                loadMarketplaceProducts();
-            } catch(e) { showToast('Erreur: ' + e.message, 'error'); }
-        }
-
-        async function deleteMpProduct(id) {
-            if (!confirm('Supprimer ce produit marketplace ?')) return;
-            try {
-                await api('/marketplace/products/' + id, 'DELETE', null, true);
-                showToast('🗑 Produit supprimé', 'success');
-                loadMarketplaceProducts();
-            } catch(e) { showToast('Erreur: ' + e.message, 'error'); }
         }
 
         async function loadMarketplaceOrders() {
