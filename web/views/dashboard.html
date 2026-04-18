@@ -3419,8 +3419,9 @@
                 </div>
                 <small style="color:var(--text-muted)">Le bot bloquera la commande si le total est inférieur à ce montant.</small>
 
-                <br>
-                <button class="btn btn-accent" style="margin-top:20px;" onclick="saveSettings()">Sauvegarder</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder Général</button>
+                </div>
             </div>
 
             <!-- Onglet Sécurité -->
@@ -3591,7 +3592,9 @@
                     </div>
                 </div>
 
-                <button class="btn btn-accent" style="margin-top:20px;" onclick="saveSettings()">Sauvegarder</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder les modifications</button>
+                </div>
             </div>
 
             <!-- Onglet Fidélité -->
@@ -3601,7 +3604,9 @@
                         <div class="stat-badge" style="background:rgba(255,215,0,0.1); color:#ffd700;">⭐</div>
                         <h3 style="margin:0;">Système de Fidélité (Points)</h3>
                     </div>
-                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                    </div>
                 </div>
                 <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Récompensez vos clients fidèles par des points convertibles en crédit.</p>
 
@@ -3657,7 +3662,9 @@
                     </ul>
                 </div>
 
-                <button class="btn btn-accent" style="margin-top:25px;" onclick="saveSettings()">Sauvegarder les réglages</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder Fidélité</button>
+                </div>
             </div>
 
             <!-- Onglet Paiement -->
@@ -3679,7 +3686,9 @@
                     <p style="color:var(--text-muted); font-size:13px;">L'ID doit être unique (ex: CASH, CARD, PAYPAL). L'icône et le libellé seront affichés sur les boutons du bot.</p>
                 </div>
                 
-                <button class="btn btn-accent" style="margin-top:25px;" onclick="saveSettings()">Sauvegarder les modes de paiement</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder Modes de Paiement</button>
+                </div>
             </div>
 
             <!-- Onglet Contenu (Bot Content) -->
@@ -3974,12 +3983,17 @@
                     </div>
                 </div>
 
-                <button class="btn btn-accent" style="margin-top:20px;" onclick="saveSettings()">Sauvegarder tout le contenu</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder tout le contenu</button>
+                </div>
             </div>
 
             <!-- Onglet Interface (Icons) -->
             <div id="sub-settings-ui" class="card" style="display:none;">
-                <h3>Menu & Navigation (Icônes)</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">Menu & Navigation (Icônes)</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                </div>
                 <div
                     style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:15px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px;">
                     <div><label>Icône Catalogue</label><input id="set_ui_icon_catalog" placeholder="🍔"></div>
@@ -4050,12 +4064,17 @@
                     <div><label>Icône 'Erreur / Annulée'</label><input id="set_ui_icon_error" placeholder="❌"></div>
                 </div>
 
-                <button class="btn btn-accent" style="margin-top:20px;" onclick="saveSettings()">Sauvegarder</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder l'Interface</button>
+                </div>
             </div>
 
             <!-- Onglet Automatisations -->
             <div id="sub-settings-auto" class="card" style="display:none;">
-                <h3>Automatisations & Relances (Push)</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">Automatisations & Relances (Push)</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                </div>
                 <div style="background:rgba(255,165,0,0.05); padding:20px; border-radius:12px; border:1px solid orange; margin-bottom:20px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
                         <div>
@@ -4127,7 +4146,9 @@
                     </div>
                 </div>
 
-                <button class="btn btn-accent" style="margin-top:20px;" onclick="saveSettings()">Sauvegarder tout</button>
+                <div style="margin-top:30px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
+                    <button class="btn btn-accent" style="min-width:200px; padding:12px 24px; font-weight:600;" onclick="saveSettings()">💾 Sauvegarder Automatisations</button>
+                </div>
             </div>
 
             <!-- Onglet Zone Danger -->
