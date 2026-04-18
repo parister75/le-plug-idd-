@@ -3473,6 +3473,15 @@
                         <input id="set_channel_url" placeholder="https://t.me/+votre_lien_canal">
                         <small style="opacity:0.6;">Utilisé pour les boutons "Canal" du bot.</small>
                     </div>
+
+                    <!-- NOUVEAU : Liens Additionnels Illimités -->
+                    <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px;">
+                        <h4 style="margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px;">🔗 Liens Additionnels Personnalisés</h4>
+                        <div id="custom_links_container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
+                            <!-- Dynamically populated -->
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="addCustomLinkRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter un lien personnalisé</button>
+                    </div>
                 </div>
 
                 <h3 style="margin-top:25px; margin-bottom:15px; font-size:18px;">Activation des plateformes & services</h3>
@@ -5326,6 +5335,19 @@
                     setVal('set_private_contact_wa_url', s.private_contact_wa_url || '');
                     setVal('set_channel_url', s.channel_url || '');
 
+                    // Custom Links Initialization
+                    const clContainer = document.getElementById('custom_links_container');
+                    if (clContainer) {
+                        clContainer.innerHTML = '';
+                        let cLinks = [];
+                        try {
+                            cLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
+                        } catch(e) { console.error('Parse custom_links failed', e); }
+                        if (cLinks && Array.isArray(cLinks)) {
+                            cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
+                        }
+                    }
+
                     // Plateformes
                     setVal('set_enable_telegram', s.enable_telegram);
                     setVal('set_enable_whatsapp', s.enable_whatsapp);
@@ -6970,6 +6992,11 @@
                     private_contact_url: getVal('set_private_contact_url'),
                     private_contact_wa_url: getVal('set_private_contact_wa_url'),
                     channel_url: getVal('set_channel_url'),
+                    custom_links: JSON.stringify(Array.from(document.querySelectorAll('.custom-link-row')).map(row => ({
+                        icon: row.querySelector('.link-icon-input').value,
+                        label: row.querySelector('.link-label-input').value,
+                        url: row.querySelector('.link-url-input').value
+                    })).filter(l => l.url.trim() !== '')),
                     points_ratio: parseFloat(getVal('set_pts_ratio')) || 1,
                     points_exchange: parseInt(getVal('set_pts_exchange')) || 100,
                     points_credit_value: parseFloat(getVal('set_pts_credit_value')) || 5,
@@ -7126,6 +7153,21 @@
             div.style = "display:flex; gap:10px; align-items:center;";
             div.innerHTML = `
                 <input class="${type}-id-input" value="${val}" placeholder="ID Telegram (ex: 12345678)" style="flex:1;">
+                <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function addCustomLinkRow(icon = '🔗', label = '', url = '') {
+            const container = document.getElementById('custom_links_container');
+            if (!container) return;
+            const div = document.createElement('div');
+            div.className = 'custom-link-row';
+            div.style = "display:flex; gap:8px; align-items:center;";
+            div.innerHTML = `
+                <input class="link-icon-input" value="${icon}" placeholder="Icon" style="width:45px; text-align:center;">
+                <input class="link-label-input" value="${label}" placeholder="Libellé (ex: Instagram)" style="flex:1;">
+                <input class="link-url-input" value="${url}" placeholder="https://..." style="flex:2;">
                 <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
             `;
             container.appendChild(div);

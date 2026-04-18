@@ -345,12 +345,26 @@ function setupStartHandler(bot) {
         if (settings.private_contact_wa_url) {
             buttons.push([Markup.button.url('📲 WhatsApp : Admin', settings.private_contact_wa_url)]);
         }
+
+        // NOUVEAU : Affichage des liens personnalisés
+        let customLinksText = '';
+        try {
+            const customLinks = typeof settings.custom_links === 'string' ? JSON.parse(settings.custom_links) : (settings.custom_links || []);
+            if (Array.isArray(customLinks)) {
+                customLinks.forEach(link => {
+                    buttons.push([Markup.button.url(`${link.icon || '🔗'} ${link.label || 'Lien'}`, link.url)]);
+                    customLinksText += `• <b>${link.label || 'Lien'} :</b> <a href="${link.url}">Cliquez ici</a>\n`;
+                });
+            }
+        } catch (e) { console.error('[CUSTOM_LINKS] Error parsing:', e); }
+
         buttons.push([Markup.button.callback('◀️ Retour', 'main_menu')]);
         
         let text = `${settings.ui_icon_contact || '💬'} <b>${settings.label_contact || 'Contact Admin'}</b>\n\n` +
                    `Bonjour <b>${ctx.from.first_name}</b>, vous pouvez nous contacter en direct :\n\n` +
                    (settings.private_contact_url ? `🔹 <b>Telegram :</b> <a href="${settings.private_contact_url}">Cliquez ici</a>\n` : '') +
-                   (settings.private_contact_wa_url ? `🔸 <b>WhatsApp :</b> <a href="${settings.private_contact_wa_url}">Cliquez ici</a>\n\n` : '\n') +
+                   (settings.private_contact_wa_url ? `🔸 <b>WhatsApp :</b> <a href="${settings.private_contact_wa_url}">Cliquez ici</a>\n` : '') +
+                   customLinksText + (customLinksText ? '\n' : '') +
                    (isFournisseur ? `<i>Note : En tant que fournisseur, utilisez ces liens pour toute question logistique ou paiement.</i>\n\n` : '') +
                    `Cliquez sur l'un des boutons ci-dessous pour ouvrir une discussion.`;
         await safeEdit(ctx, text, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });

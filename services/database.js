@@ -2027,6 +2027,7 @@ const SETTINGS_DEFAULTS = {
     priority_delivery_price: 15,
     auto_approve_new: false, // Default to false, to be toggled by admin
     notify_on_approval: false, // Whether to send the confirmation message
+    custom_links: '[]',
     
     // Buttons
     btn_back_menu: '◀️ Retour Menu',
