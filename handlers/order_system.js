@@ -178,9 +178,10 @@ function setupOrderSystem(bot) {
         // NOUVEAU: Affichage des prix dégressifs
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
             promoText += `\n📉 <b>PRIX DÉGRESSIFS :</b>\n`;
+            const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? ` ${product.unit}` : ' unités';
             product.discounts_config.forEach(d => {
                 const discountTotal = d.total || d.total_price;
-                promoText += `• ${d.qty} unités : <b>${discountTotal}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
+                promoText += `• ${d.qty}${unitSuffix} : <b>${discountTotal}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
             });
         }
 
@@ -193,10 +194,16 @@ function setupOrderSystem(bot) {
 
         const qtyOptions = [1, 2, 3, 4, 5, 10];
         const qtyRows = [];
+        const unit = product.unit || '';
+        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
+
         for (let i = 0; i < qtyOptions.length; i += 2) {
-            const row = [Markup.button.callback(`${qtyOptions[i]}`, `qty_${productId}_${qtyOptions[i]}`)];
+            const label1 = `${qtyOptions[i]}${unitDisplay}`;
+            const row = [Markup.button.callback(label1, `qty_${productId}_${qtyOptions[i]}`)];
+            
             if (i + 1 < qtyOptions.length) {
-                row.push(Markup.button.callback(`${qtyOptions[i+1]}`, `qty_${productId}_${qtyOptions[i+1]}`));
+                const label2 = `${qtyOptions[i+1]}${unitDisplay}`;
+                row.push(Markup.button.callback(label2, `qty_${productId}_${qtyOptions[i+1]}`));
             }
             qtyRows.push(row);
         }
