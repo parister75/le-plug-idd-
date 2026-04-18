@@ -1064,7 +1064,7 @@ function setupOrderSystem(bot) {
         const productList = cart.map(item => `${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`).join(', ');
         const totalQty = cart.reduce((acc, item) => acc + item.qty, 0);
         const discount = useDiscount ? (pending.possibleDiscount || 0) : 0;
-        const finalPrice = parseFloat(pending.totalPrice) - discount;
+        const finalPrice = Math.max(0, parseFloat(pending.totalPrice || 0) - discount);
 
         const isPriority = pending.is_priority;
         const priorityFee = isPriority ? (parseFloat(pending.priority_fee) || 0) : 0;
@@ -2417,7 +2417,7 @@ function setupOrderSystem(bot) {
         // settings already defined above
         let detailText = `📦 <b>Détails Livraison #${orderId.slice(-5)}</b>\n\n` +
             `📍 Adresse : <code>${order.address}</code>\n` +
-            `💰 À encaisser : <b>${order.total_price}€</b>\n\n`;
+            `💰 À encaisser : <b>${order.total_price || 0}€</b>\n\n`;
 
         if (order.scheduled_at) {
             detailText = `🗓 <b>LIVRAISON PLANIFIÉE</b>\n` +

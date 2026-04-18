@@ -6901,7 +6901,7 @@
                     // Privileged Users (Multi-ID)
                     admin_telegram_id: Array.from(document.querySelectorAll('.admin-id-input')).map(i => i.value.trim()).filter(Boolean).join(', '),
                     list_moderators: Array.from(document.querySelectorAll('.moderator-id-input')).map(i => i.value.trim()).filter(Boolean).join(', '),
-                    admin_password: getVal('set_current_password'),
+                    admin_password: getVal('set_admin_password'),
                     dashboard_url: getVal('set_dashboard_url'),
                     private_contact_url: getVal('set_private_contact_url'),
                     private_contact_wa_url: getVal('set_private_contact_wa_url'),

@@ -34,6 +34,19 @@ function debugLog(msg) {
     console.log(msg);
 }
 
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[m];
+    });
+}
+
 // configuration handled in index.js
 
 const { dispatcher } = require('./services/dispatcher');
@@ -733,7 +746,8 @@ function createServer() {
                 const now = Date.now();
                 if (now - lastCatalogNotificationTime > CATALOG_NOTIFICATION_COOLDOWN) {
                     const settings = await getAppSettings();
-                    const msg = (settings?.msg_auto_timer || '🔥 <b>Le catalogue est à jour !</b>') + (req.body.name ? `\n\n<b>Nouveauté :</b> ${req.body.name}` : '');
+                    const cleanName = escapeHTML(req.body.name);
+                    const msg = (settings?.msg_auto_timer || '🔥 <b>Le catalogue est à jour !</b>') + (cleanName ? `\n\n<b>Nouveauté :</b> ${cleanName}` : '');
                     
                     // Extraction des médias pour la notification
                     let mediaUrls = [];

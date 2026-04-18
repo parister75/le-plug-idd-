@@ -386,7 +386,15 @@ async function sendToUser(user, message, unifiedMediaList = [], options = {}) {
         const execute = async () => {
             try {
                 // First attempt: HTML
-                return await _bot.telegram[method](chatId, ...args, { parse_mode: 'HTML' });
+                // Merge parse_mode into the last argument if it's an object
+                let finalArgs = [...args];
+                if (finalArgs.length > 0 && typeof finalArgs[finalArgs.length - 1] === 'object' && !(finalArgs[finalArgs.length - 1] instanceof Buffer)) {
+                    finalArgs[finalArgs.length - 1] = { ...finalArgs[finalArgs.length - 1], parse_mode: 'HTML' };
+                } else {
+                    finalArgs.push({ parse_mode: 'HTML' });
+                }
+                
+                return await _bot.telegram[method](chatId, ...finalArgs);
             } catch (err) {
                 const desc = (err.description || '').toLowerCase();
                 if (desc.includes('can\'t parse entities') || desc.includes('bad request')) {
