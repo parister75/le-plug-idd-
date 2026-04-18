@@ -3449,12 +3449,20 @@
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
                     <div>
                         <label>Mot de passe actuel</label>
-                        <input id="set_current_password" readonly
-                            style="background:rgba(255,255,255,0.05); color:var(--accent);">
+                        <div style="position:relative;">
+                            <input id="set_current_password" type="password" readonly
+                                style="background:rgba(255,255,255,0.05); color:var(--accent); padding-right:40px;">
+                            <button class="btn btn-ghost" onclick="togglePassVisibility('set_current_password')" 
+                                style="position:absolute; right:5px; top:50%; transform:translateY(-50%); padding:5px; height:auto; opacity:0.6;">👁️</button>
+                        </div>
                     </div>
                     <div>
                         <label>Modifier le mot de passe</label>
-                        <input type="password" id="set_admin_password" placeholder="Nouveau mot de passe">
+                        <div style="position:relative;">
+                            <input type="password" id="set_admin_password" placeholder="Nouveau mot de passe" style="padding-right:40px;">
+                            <button class="btn btn-ghost" onclick="togglePassVisibility('set_admin_password')" 
+                                style="position:absolute; right:5px; top:50%; transform:translateY(-50%); padding:5px; height:auto; opacity:0.6;">👁️</button>
+                        </div>
                     </div>
                 </div>
 
@@ -4705,9 +4713,7 @@
                 
                 let total = 0;
                 filtered.forEach(o => {
-                    if (o.status !== 'cancelled') {
                         total += parseFloat(o.total_price) || 0;
-                    }
                 });
                 
                 const totalEl = document.getElementById('orderTotalSum');
@@ -6038,6 +6044,11 @@
         }
 
         /* LOGIC FUNCTIONS */
+        function togglePassVisibility(id) {
+            const el = document.getElementById(id);
+            if (el) el.type = el.type === 'password' ? 'text' : 'password';
+        }
+
         async function saveProduct() {
             const pid = document.getElementById('edit_prod_id').value;
             const name = document.getElementById('prod_name').value;

@@ -50,7 +50,7 @@ function getAllMediaUrls(product) {
         if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.substring(1, raw.length - 1);
     }
 
-    const videoExtRegex = /\.(mp4|mov|avi|wmv|webm|mkv)(\?.*)?$/i;
+    const videoExtRegex = /\.(mp4|mov|avi|wmv|webm|mkv|m4v)(\?.*)?$/i;
 
     // Handle JSON array format: [{"url":"...", "type":"photo"}, ...]
     if (typeof raw === 'string' && raw.startsWith('[') && raw.endsWith(']')) {
@@ -215,13 +215,14 @@ function setupOrderSystem(bot) {
         clearActiveMediaGroup(userId);
         
         const allMedia = getAllMediaUrls(product);
-        const firstPhoto = allMedia.length > 0 ? allMedia[0].url : null;
-        const isVideo = allMedia.length > 0 && allMedia[0].type === 'video';
+        const firstMedia = allMedia.length > 0 ? allMedia[0] : null;
+        const isVideo = firstMedia && firstMedia.type === 'video';
+        const mediaUrl = firstMedia ? firstMedia.url : null;
 
         await safeEdit(ctx, text, {
             ...keyboard,
-            photo: isVideo ? null : firstPhoto,
-            video: isVideo ? firstPhoto : null
+            photo: isVideo ? null : mediaUrl,
+            video: isVideo ? mediaUrl : null
         });
     });
 
@@ -1135,7 +1136,6 @@ function setupOrderSystem(bot) {
 
             if (createResult.error) throw createResult.error;
             const order = createResult.order;
-            
             // On vérifie si c'est la première commande en utilisant l'ID officiel (possiblement fusionné)
             const officialUserId = ctx.state.user?.id || userId;
             const previousOrders = await getOrdersByUser(officialUserId);
@@ -1146,13 +1146,13 @@ function setupOrderSystem(bot) {
 
             // --- 4. RÉPONSE CLIENT (Priorité #1) ---
             const user = ctx.state?.user || await getUser(userId);
-            const confirmedMsgBody = t(user, 'msg_order_registered', dbSettings.msg_order_confirmed_client || `✅ <b>Commande enregistrée !</b>\n\n📦 Produit : {product_list}\n📍 Adresse : {address}\n{delivery_time}\n💰 Total : <b>{total}€</b>\n\n{success_icon} Recherche d'un livreur en cours...`);
+            const confirmedMsgBody = t(user, 'msg_order_registered', dbSettings.msg_order_confirmed_client || `✅ <b>Commande enregistrée !</b>\n\n📦 Produit : {product_list}\n📍 Adresse : {address}\n{delivery_time}\n💰 Total : {total}\n\n{success_icon} Recherche d'un livreur en cours...`);
             const finalConfirmedMsg = confirmedMsgBody
-                .replace('{product_list}', finalProductList)
-                .replace('{address}', pending.address)
-                .replace('{delivery_time}', (pending.scheduled_at ? t(user, 'label_scheduled_for', `🕒 Prévu pour :`) + ` <b>${pending.scheduled_at}</b>` : t(user, 'label_delivery_asap', `🚀 Livraison : Dès que possible`)))
-                .replace('{total}', finalPrice.toFixed(2))
-                .replace('{success_icon}', dbSettings.ui_icon_success || '✅');
+                .replace('{product_list}', `<b>${order.product_name}</b>`)
+                .replace('{address}', `<code>${order.address}</code>`)
+                .replace('{delivery_time}', order.scheduled_at ? `🕒 <b>Prévu pour : ${order.scheduled_at}</b>` : t(user, 'label_asap', '🕒 Dès que possible'))
+                .replace('{total}', `<b>${parseFloat(order.total_price).toFixed(2)}€</b>`)
+                .replace('{success_icon}', dbSettings.ui_icon_success || '🏃');
 
             await safeEdit(ctx, finalConfirmedMsg, Markup.inlineKeyboard([
                 [Markup.button.callback(t(user, 'label_ongoing_orders_btn', '📦 Mes commandes en cours'), 'my_orders')],
@@ -1540,7 +1540,10 @@ function setupOrderSystem(bot) {
             `📦 Produit : <b>${order.product_name}</b>\n` +
             `📍 Adresse : <code>${order.address}</code>\n` +
             (order.scheduled_at ? `🕒 <b>PRÉVU POUR : ${order.scheduled_at}</b>\n\n` : `🕒 Dès que possible\n\n`) +
-            `💰 Total à encaisser : <b>${order.total_price}€</b>\n\n` +
+            `💰 <b>Détails du Paiement :</b>\n` +
+            `   ├ Total commande : ${parseFloat(order.total_price + (order.discount_applied || 0)).toFixed(2)}€\n` +
+            `   ├ Crédit utilisé : ${(order.discount_applied || 0).toFixed(2)}€\n` +
+            `   └ 💵 <b>À ENCAISSER : ${parseFloat(order.total_price).toFixed(2)}€</b>\n\n` +
             `💡 <i>Pensez à partager votre position en direct pour notifier le client de votre arrivée.</i>\n\n` +
             `Cliquez sur le bouton ci-dessous une fois livré :`,
             {
@@ -2423,8 +2426,9 @@ function setupOrderSystem(bot) {
 
         // settings already defined above
         let detailText = `📦 <b>Détails Livraison #${orderId.slice(-5)}</b>\n\n` +
+            `📦 Produit : <b>${order.product_name}</b>\n` +
             `📍 Adresse : <code>${order.address}</code>\n` +
-            `💰 À encaisser : <b>${order.total_price || 0}€</b>\n\n`;
+            `💰 <b>À ENCAISSER : ${parseFloat(order.total_price).toFixed(2)}€</b>\n\n`;
 
         if (order.scheduled_at) {
             detailText = `🗓 <b>LIVRAISON PLANIFIÉE</b>\n` +
