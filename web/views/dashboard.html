@@ -1659,6 +1659,10 @@
             color: #ff3b30;
             opacity: 0.6;
         }
+        input:checked + .switch-slider:before {
+            transform: translateX(20px);
+        }
+
         .pulse-success {
             animation: pulse-success 0.8s ease-out;
         }
@@ -3385,6 +3389,7 @@
             <div id="sub-settings-general" class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Général</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
                     <div>
@@ -3433,6 +3438,7 @@
             <div id="sub-settings-security" class="card" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Sécurité & Rôles Administrateurs</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
                 <label>Administrateurs (IDs Telegram - 1 par ligne)</label>
                 <div id="admins_list_container"
@@ -3616,6 +3622,9 @@
                         <div class="stat-badge" style="background:rgba(255,215,0,0.1); color:#ffd700;">⭐</div>
                         <h3 style="margin:0;">Système de Fidélité (Points)</h3>
                     </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                    </div>
                 </div>
                 <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Récompensez vos clients fidèles par des points convertibles en crédit.</p>
 
@@ -3680,6 +3689,7 @@
             <div id="sub-settings-payment" class="card" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Modes de Paiement</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
                 <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Configurez les options de paiement proposées lors de la confirmation de commande.</p>
                 
@@ -3703,6 +3713,7 @@
             <div id="sub-settings-content" class="card" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Contenu du Bot (Textes & Boutons)</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
                 <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Personnalisez tous les messages envoyés par le bot lors du processus de commande.</p>
                 
@@ -3999,6 +4010,7 @@
             <div id="sub-settings-ui" class="card" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Menu & Navigation (Icônes)</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
                 <div
                     style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:15px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px;">
@@ -4079,6 +4091,7 @@
             <div id="sub-settings-auto" class="card" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Automatisations & Relances (Push)</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
                 <div style="background:rgba(255,165,0,0.05); padding:20px; border-radius:12px; border:1px solid orange; margin-bottom:20px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
@@ -6044,7 +6057,18 @@
             ];
             dynFields.forEach(key => setVal('set_' + key, s[key]));
 
-            renderCustomLinks(s.custom_links);
+            // Custom Links Initialization
+            const clContainer = document.getElementById('custom_links_container');
+            if (clContainer) {
+                clContainer.innerHTML = '';
+                let cLinks = [];
+                try {
+                    cLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
+                } catch (e) { console.error('Parse custom_links failed', e); }
+                if (cLinks && Array.isArray(cLinks)) {
+                    cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
+                }
+            }
         }
 
         function togglePassVisibility(id) {
@@ -7208,19 +7232,6 @@
                 <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
             `;
             container.appendChild(div);
-        }
-
-        function renderCustomLinks(links) {
-            const container = document.getElementById('custom_links_container');
-            if (!container) return;
-            container.innerHTML = '';
-            let cLinks = [];
-            try {
-                cLinks = typeof links === 'string' ? JSON.parse(links) : (links || []);
-            } catch(e) { console.error('Parse custom_links failed', e); }
-            if (cLinks && Array.isArray(cLinks)) {
-                cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
-            }
         }
 
         async function delUser(id) {

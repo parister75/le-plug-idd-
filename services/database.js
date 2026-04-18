@@ -2170,7 +2170,9 @@ async function updateAppSettings(settings) {
             'label_catalog', 'ui_icon_catalog', 'label_my_orders', 'ui_icon_orders',
             'payment_modes_config', 'msg_order_received_admin', 'msg_order_confirmed_client',
             'force_subscribe', 'force_subscribe_channel_id', 'priority_delivery_enabled', 'priority_delivery_price',
-            'auto_approve_new', 'notify_on_approval'
+            'auto_approve_new', 'notify_on_approval', 'custom_links',
+            'label_profile', 'ui_icon_profile', 'label_livreur_space', 'ui_icon_livreur',
+            'label_admin_bot', 'ui_icon_admin', 'label_admin_web', 'ui_icon_web'
         ];
         const coreFiltered = {};
         for (const key of coreFields) {
