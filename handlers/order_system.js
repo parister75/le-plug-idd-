@@ -1207,7 +1207,8 @@ function setupOrderSystem(bot) {
 
                 const adminBtns = Markup.inlineKeyboard([
                     [Markup.button.callback('🤝 ASSIGNER', `ao_l_${order.id}`)],
-                    [Markup.button.callback('⚙️ GÉRER', `ao_v_${order.id}`)]
+                    [Markup.button.callback('⚙️ GÉRER', `ao_v_${order.id}`)],
+                    [Markup.button.callback('💬 CONTACTER', `admin_chat_user_${order.user_id}`)]
                 ]).reply_markup;
 
                 // Envois réels

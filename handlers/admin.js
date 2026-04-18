@@ -461,22 +461,33 @@ function setupAdminHandlers(bot) {
     });
     
     // Support Chat - Admin vers Client
-    bot.action(/^admin_chat_user_(.+)$/, async (ctx) => {
-        if (!(await isStaff(ctx))) return;
-        let targetIdString = ctx.match[1];
+    bot.action(/^(admin_chat_user_|ac_u_)(.+)$/, async (ctx) => {
+        const targetIdString = ctx.match[2];
         const adminId = String(ctx.from.id);
-        
-        // --- RESOLUTION DES IDS TRONQUÉS ---
-        // Si l'ID est tronqué (limite Telegram 64 octets), on cherche le full ID dans la file
-        if (!pendingSupportRequests.has(targetIdString)) {
-            const found = Array.from(pendingSupportRequests.keys()).find(k => k.startsWith(targetIdString));
+
+        console.log(`[AdminChat] Initiation vers ${targetIdString} par ${adminId}`);
+
+        let targetId = targetIdString;
+
+        // Si l'ID est tronqué (limite Telegram 64 octets), on cherche le full ID dans la file ou en base
+        if (!pendingSupportRequests.has(targetIdString) && !targetIdString.includes('_')) {
+            // 1. Chercher dans les requêtes en attente
+            const found = Array.from(pendingSupportRequests.keys()).find(k => k.endsWith(targetIdString) || k.includes(targetIdString));
             if (found) {
-                console.log(`[Queue-Resolve] Translated ${targetIdString} -> ${found}`);
-                targetIdString = found;
+                targetId = found;
+                console.log(`[AdminChat] ID Tronqué résolu via Memory: ${targetIdString} -> ${targetId}`);
+            } else {
+                // 2. Chercher en base de données (si c'est un ID platform_id partiel)
+                const { searchUsers } = require('../services/database');
+                const matches = await searchUsers(targetIdString).catch(() => []);
+                if (matches && matches.length === 1) {
+                    targetId = matches[0].id;
+                    console.log(`[AdminChat] ID Tronqué résolu via DB: ${targetIdString} -> ${targetId}`);
+                }
             }
         }
 
-        awaitingAdminChat.set(adminId, targetIdString);
+        awaitingAdminChat.set(adminId, targetId);
         activeAdminSessions.set(adminId, true);
         
         const mod = await isModerator(ctx);
@@ -728,7 +739,10 @@ function setupAdminHandlers(bot) {
             `Il sera diffusé à tous les utilisateurs actifs.\n\n` +
             `<b>Note :</b> Vous pouvez joindre une Photo ou Vidéo.\n\n` +
             `<i>Ou utilisez /broadcast Votre Message</i>`,
-            Markup.inlineKeyboard([[Markup.button.callback('❌ Annuler', 'admin_menu')]])
+            Markup.inlineKeyboard([
+                [Markup.button.callback('📋 Historique des diffusions', 'admin_broadcast_history')],
+                [Markup.button.callback('❌ Annuler', 'admin_menu')]
+            ])
         );
     });
 
@@ -1422,6 +1436,67 @@ function setupAdminHandlers(bot) {
         await cleanupUserChat(ctx);
         return showAdminMenu(ctx);
     });
+
+    // --- HISTORIQUE DE DIFFUSION ---
+    bot.action('admin_broadcast_history', async (ctx) => {
+        const { getBroadcastHistory } = require('../services/database');
+        const history = await getBroadcastHistory(10);
+        
+        let text = `📋 <b>Historique des Diffusions</b>\n\n`;
+        const buttons = [];
+
+        if (!history || history.length === 0) {
+            text += `<i>Aucune diffusion enregistrée.</i>`;
+        } else {
+            history.forEach(bc => {
+                const date = new Date(bc.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                const statusIcon = bc.status === 'completed' ? '✅' : (bc.status === 'in_progress' ? '⏳' : '❌');
+                const shortMsg = bc.message ? (bc.message.substring(0, 20) + '...') : 'Média seul';
+                
+                buttons.push([Markup.button.callback(`${statusIcon} ${date} - ${shortMsg}`, `admin_bc_view_${bc.id}`)]);
+            });
+        }
+
+        buttons.push([Markup.button.callback('🔄 Rafraîchir', 'admin_broadcast_history')]);
+        buttons.push([Markup.button.callback('◀️ Retour', 'admin_menu')]);
+
+        await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
+    });
+
+    bot.action(/^admin_bc_view_(.+)$/, async (ctx) => {
+        const bcId = ctx.match[1];
+        const { supabase } = require('../services/database');
+        const { data: bc } = await supabase.from('bot_broadcasts').select('*').eq('id', bcId).single();
+
+        if (!bc) return ctx.answerCbQuery('❌ Inconnu');
+
+        const date = new Date(bc.created_at).toLocaleString('fr-FR');
+        const stats = `📊 <b>Stats :</b>\n✅ Succès : ${bc.success || 0}\n❌ Échecs : ${bc.failed || 0}\n🚫 Bloqué : ${bc.blocked || 0}\n👥 Total : ${bc.total_target || 0}`;
+        
+        let text = `📢 <b>Détails Diffusion</b>\n\n` +
+            `📅 Date : ${date}\n` +
+            `🏁 Statut : <b>${bc.status.toUpperCase()}</b>\n\n` +
+            `📝 Message :\n<i>${bc.message || '(Média seul)'}</i>\n\n` +
+            stats;
+
+        const buttons = [
+            [Markup.button.callback('🗑 Supprimer du log', `admin_bc_del_${bcId}`)],
+            [Markup.button.callback('◀️ Retour Liste', 'admin_broadcast_history')]
+        ];
+
+        await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
+    });
+
+    bot.action(/^admin_bc_del_(.+)$/, async (ctx) => {
+        const bcId = ctx.match[1];
+        const { deleteBroadcast } = require('../services/database');
+        await deleteBroadcast(bcId);
+        await ctx.answerCbQuery('✅ Supprimé');
+        // Recharger l'historique
+        return bot.handleUpdate({ ...ctx.update, callback_query: { ...ctx.callbackQuery, data: 'admin_broadcast_history' } });
+    });
+
+    return bot;
 }
 
 module.exports = { 
