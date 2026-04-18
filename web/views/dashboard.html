@@ -5310,184 +5310,8 @@
                 }
                 if (id === 'settings') {
                     const s = await api('/settings');
-                    window.appSettings = s; // Mise à jour globale
-                    const setVal = (id, val) => {
-                        const el = document.getElementById(id);
-                        if (el) {
-                            if (el.type === 'checkbox') el.checked = !!val;
-                            else el.value = val === undefined || val === null ? '' : val;
-                        }
-                    };
-                    
-                    // Payment Modes Initialization
-                    const pmContainer = document.getElementById('payment_modes_container');
-                    if (pmContainer) {
-                        pmContainer.innerHTML = '';
-                        let pModes = [];
-                        try {
-                            pModes = typeof s.payment_modes_config === 'string' ? JSON.parse(s.payment_modes_config) : (s.payment_modes_config || []);
-                        } catch(e) { console.error('Parse PM config failed', e); }
-                        if (!pModes || pModes.length === 0) {
-                            addPaymentModeRow({id:'CASH', label:'Espèces', icon:'💵'});
-                        } else {
-                            pModes.forEach(m => addPaymentModeRow(m));
-                        }
-                    }
-
-                    setVal('set_bot_name', s.bot_name);
-                    setVal('set_title', s.dashboard_title || 'LE PLUG IDF');
-                    setVal('set_color', s.accent_color || '#ff0050');
-
-                    // Admin Dynamic List
-                    const container = document.getElementById('admins_list_container');
-                    if (container) {
-                        container.innerHTML = '';
-                        const adminIds = String(s.admin_telegram_id || '').split(/[\s,]+/).filter(id => id.trim() !== '');
-                        if (adminIds.length === 0) addAdminRow('admin', '');
-                        else adminIds.forEach(id => addAdminRow('admin', id));
-                    }
-                    
-                    // Moderator Dynamic List
-                    const mContainer = document.getElementById('moderators_list_container');
-                    if (mContainer) {
-                        mContainer.innerHTML = '';
-                        const modIds = String(s.list_moderators || '').split(/[\s,]+/).filter(id => id.trim() !== '');
-                        if (modIds.length === 0) addAdminRow('moderator', '');
-                        else modIds.forEach(id => addAdminRow('moderator', id));
-                    }
-                    setVal('set_current_password', s.admin_password || '');
-                    setVal('set_dashboard_url', s.dashboard_url || '');
-                    setVal('set_private_contact_url', s.private_contact_url || '');
-                    setVal('set_private_contact_wa_url', s.private_contact_wa_url || '');
-                    setVal('set_channel_url', s.channel_url || '');
-
-                    // Custom Links Initialization
-                    const clContainer = document.getElementById('custom_links_container');
-                    if (clContainer) {
-                        clContainer.innerHTML = '';
-                        let cLinks = [];
-                        try {
-                            cLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
-                        } catch(e) { console.error('Parse custom_links failed', e); }
-                        if (cLinks && Array.isArray(cLinks)) {
-                            cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
-                        }
-                    }
-
-                    // Plateformes
-                    setVal('set_enable_telegram', s.enable_telegram);
-                    setVal('set_enable_whatsapp', s.enable_whatsapp);
-                    setVal('set_enable_marketplace', s.enable_marketplace);
-                    setVal('set_enable_fidelity', s.enable_fidelity);
-                    setVal('set_enable_referral', s.enable_referral);
-                    setVal('set_enable_help_menu', s.enable_help_menu);
-                    setVal('set_welcome_message_enabled', s.welcome_message_enabled);
-                    setVal('set_enable_itinerary_btn', s.enable_itinerary_btn);
-
-                    setVal('set_pts_ratio', s.points_ratio || 1);
-                    setVal('set_pts_exchange', s.points_exchange || 100);
-                    setVal('set_pts_credit_value', s.points_credit_value || 5);
-                    setVal('set_ref_bonus', s.ref_bonus || 5);
-                    setVal('set_fidelity_thresholds', s.fidelity_bonus_thresholds || '5,10');
-                    renderPaliersGrid(s.fidelity_bonus_thresholds || '5,10');
-                    setVal('set_fidelity_bonus_val', s.fidelity_bonus_amount || 10);
-                    setVal('set_fidelity_min_spend', s.fidelity_min_spend || 50);
-
-                    // Composants UI
-                    setVal('set_ui_icon_catalog', s.ui_icon_catalog || '⚡️');
-                    setVal('set_label_catalog', s.label_catalog || 'Catalogue');
-                    setVal('set_label_catalog_title', s.label_catalog_title || '');
-                    
-                    // Mise à jour visuelle immédiate du Dashboard
-                    const dTitle = s.dashboard_title || 'LE PLUG IDF';
-                    // Update header if we are in general settings or overview
-                    if(document.getElementById('brand_name')) document.getElementById('brand_name').innerText = dTitle.toUpperCase();
-                    if(document.getElementById('mobile_title')) document.getElementById('mobile_title').innerText = dTitle.toUpperCase();
-                    document.title = dTitle;
-
-                    setVal('set_ui_icon_orders', s.ui_icon_orders || '📦');
-                    setVal('set_label_my_orders', s.label_my_orders || 'Mes Commandes');
-                    setVal('set_ui_icon_contact', s.ui_icon_contact || '📱');
-                    setVal('set_label_contact', s.label_contact || 'Mon contact privé');
-                    setVal('set_ui_icon_profile', s.ui_icon_profile || '🎁');
-                    setVal('set_label_profile', s.label_profile || 'Mon Profil & Parrainage');
-                    setVal('set_ui_icon_livreur', s.ui_icon_livreur || '🛵');
-                    setVal('set_label_livreur', s.label_livreur_space || 'Espace Livreur');
-                    setVal('set_ui_icon_admin', s.ui_icon_admin || '⚙️');
-                    setVal('set_label_admin_bot', s.label_admin_bot || 'Gestion Bot');
-                    setVal('set_ui_icon_web', s.ui_icon_web || '🌐');
-                    setVal('set_label_admin_web', s.label_admin_web || 'Dashboard Web');
-                    setVal('set_ui_icon_wallet', s.ui_icon_wallet || '💳');
-                    setVal('set_ui_icon_points', s.ui_icon_points || '⭐️');
-                    setVal('set_ui_icon_channel', s.ui_icon_channel || '📢');
-                    setVal('set_label_channel', s.label_channel || 'Lien Canal Telegram');
-                    setVal('set_ui_icon_info', s.ui_icon_info || 'ℹ️');
-                    setVal('set_label_info', s.label_info || 'Informations');
-                    setVal('set_ui_icon_support', s.ui_icon_support || '❓');
-                    setVal('set_label_support', s.label_support || 'Aide & Support');
-                    setVal('set_ui_icon_leave_review', s.ui_icon_leave_review || '⭐️');
-                    setVal('set_label_leave_review', s.label_leave_review || 'Laisser un avis / Commentaire');
-                    setVal('set_ui_icon_view_reviews', s.ui_icon_view_reviews || '👥');
-                    setVal('set_label_view_reviews', s.label_view_reviews || 'Consulter les avis');
-                    setVal('set_ui_icon_welcome', s.ui_icon_welcome || '🏠');
-                    setVal('set_label_welcome', s.label_welcome || 'Message d\'accueil');
-
-                    // --- ALL FIELDS (SAFENED TO PREVENT CRASHES) ---
-                    setVal('set_status_pending_label', s.status_pending_label);
-                    setVal('set_ui_icon_pending', s.ui_icon_pending);
-                    setVal('set_status_confirmed_label', s.status_confirmed_label);
-                    setVal('set_ui_icon_confirmed', s.ui_icon_confirmed);
-                    setVal('set_status_preparing_label', s.status_preparing_label);
-                    setVal('set_ui_icon_preparing', s.ui_icon_preparing);
-                    setVal('set_status_taken_label', s.status_taken_label);
-                    setVal('set_ui_icon_taken', s.ui_icon_taken);
-                    setVal('set_status_delivered_label', s.status_delivered_label);
-                    setVal('set_ui_icon_success', s.ui_icon_success);
-                    setVal('set_status_cancelled_label', s.status_cancelled_label);
-                    setVal('set_ui_icon_error', s.ui_icon_error);
-
-                    // Bot Content
-                    setVal('set_msg_order_received_admin', s.msg_order_received_admin);
-                    setVal('set_msg_order_confirmed_client', s.msg_order_confirmed_client);
-                    setVal('set_btn_livreur_space', s.btn_livreur_space);
-                    setVal('set_btn_back_menu', s.btn_back_menu);
-                    setVal('set_msg_status_taken', s.msg_status_taken);
-                    setVal('set_msg_status_delivered', s.msg_status_delivered);
-                    setVal('set_msg_delay_report', s.msg_delay_report);
-                    setVal('set_msg_arrival_soon', s.msg_arrival_soon);
-                    setVal('set_msg_review_prompt', s.msg_review_prompt);
-                    setVal('set_msg_review_thanks', s.msg_review_thanks);
-                    setVal('set_btn_leave_review', s.btn_leave_review);
-                    setVal('set_btn_view_reviews', s.btn_view_reviews);
-                    setVal('set_btn_confirm_review', s.btn_confirm_review);
-                    setVal('set_btn_back_menu_nav', s.btn_back_menu_nav);
-                    setVal('set_btn_cart_resume', s.btn_cart_resume);
-                    setVal('set_btn_client_mode', s.btn_client_mode);
-                    setVal('set_msg_thanks_participation', s.msg_thanks_participation);
-                    setVal('set_msg_your_answer', s.msg_your_answer);
-                    setVal('set_label_reviews', s.label_reviews);
-                    setVal('set_label_users', s.label_users);
-                    setVal('set_default_wa_name', s.default_wa_name);
-
-                    // Dynamically load others
-                    const dynFields = [
-                        'btn_back_generic', 'btn_back_quick_menu', 'btn_back_to_cart', 'btn_back_to_qty',
-                        'btn_back_to_address', 'btn_back_to_options', 'btn_back_to_livreur_menu', 'btn_next', 'btn_previous',
-                        'btn_clear_cart', 'btn_cancel_order', 'btn_cancel_my_order', 'btn_abandon_delivery',
-                        'btn_send_now', 'btn_help_support', 'btn_where_is_delivery', 'btn_cancel', 'btn_cancel_alt',
-                        'btn_dont_use_credit', 'btn_set_available', 'btn_notify_30min', 'btn_notify_10min',
-                        'btn_rate_5', 'btn_rate_4', 'btn_rate_3', 'btn_rate_2', 'btn_rate_1',
-                        'msg_session_expired', 'msg_product_not_found', 'msg_order_not_available', 'msg_order_not_found',
-                        'msg_order_creation_error', 'msg_not_livreur', 'msg_access_denied',
-                        'msg_catalog_empty', 'msg_cart_empty', 'msg_no_reviews_yet', 'msg_no_information',
-                        'msg_no_active_deliveries', 'msg_empty_delivery_history', 'msg_no_active_orders',
-                        'msg_cart_cleared', 'msg_thanks_for_feedback', 'msg_location_updated', 'msg_livreur_welcome',
-                        'welcome_message', 'payment_modes', 'msg_choose_qty', 'msg_help_intro', 'show_broadcasts_btn',
-                        'show_reviews_btn', 'enable_abandoned_cart_notifications', 'msg_abandoned_cart',
-                        'force_subscribe', 'force_subscribe_channel_id', 'priority_delivery_enabled', 'priority_delivery_price',
-                        'auto_approve_new', 'notify_on_approval'
-                    ];
-                    dynFields.forEach(key => setVal('set_' + key, s[key]));
+                    window.appSettings = s; 
+                    renderSettingsUI(s);
                 }
             } catch (err) {
                 console.error('[LOAD DATA] Error:', err);
@@ -6044,6 +5868,186 @@
         }
 
         /* LOGIC FUNCTIONS */
+        function renderSettingsUI(s) {
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (el.type === 'checkbox') el.checked = !!val;
+                    else el.value = val === undefined || val === null ? '' : val;
+                }
+            };
+
+            // Payment Modes Initialization
+            const pmContainer = document.getElementById('payment_modes_container');
+            if (pmContainer) {
+                pmContainer.innerHTML = '';
+                let pModes = [];
+                try {
+                    pModes = typeof s.payment_modes_config === 'string' ? JSON.parse(s.payment_modes_config) : (s.payment_modes_config || []);
+                } catch (e) { console.error('Parse PM config failed', e); }
+                if (!pModes || pModes.length === 0) {
+                    addPaymentModeRow({ id: 'CASH', label: 'Espèces', icon: '💵' });
+                } else {
+                    pModes.forEach(m => addPaymentModeRow(m));
+                }
+            }
+
+            setVal('set_bot_name', s.bot_name);
+            setVal('set_title', s.dashboard_title || 'LE PLUG IDF');
+            setVal('set_color', s.accent_color || '#ff0050');
+
+            // Admin Dynamic List
+            const container = document.getElementById('admins_list_container');
+            if (container) {
+                container.innerHTML = '';
+                const adminIds = String(s.admin_telegram_id || '').split(/[\s,]+/).filter(id => id.trim() !== '');
+                if (adminIds.length === 0) addAdminRow('admin', '');
+                else adminIds.forEach(id => addAdminRow('admin', id));
+            }
+
+            // Moderator Dynamic List
+            const mContainer = document.getElementById('moderators_list_container');
+            if (mContainer) {
+                mContainer.innerHTML = '';
+                const modIds = String(s.list_moderators || '').split(/[\s,]+/).filter(id => id.trim() !== '');
+                if (modIds.length === 0) addAdminRow('moderator', '');
+                else modIds.forEach(id => addAdminRow('moderator', id));
+            }
+            setVal('set_current_password', s.admin_password || '');
+            setVal('set_dashboard_url', s.dashboard_url || '');
+            setVal('set_private_contact_url', s.private_contact_url || '');
+            setVal('set_private_contact_wa_url', s.private_contact_wa_url || '');
+            setVal('set_channel_url', s.channel_url || '');
+
+            // Custom Links Initialization
+            const clContainer = document.getElementById('custom_links_container');
+            if (clContainer) {
+                clContainer.innerHTML = '';
+                let cLinks = [];
+                try {
+                    cLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
+                } catch (e) { console.error('Parse custom_links failed', e); }
+                if (cLinks && Array.isArray(cLinks)) {
+                    cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
+                }
+            }
+
+            // Plateformes
+            setVal('set_enable_telegram', s.enable_telegram);
+            setVal('set_enable_whatsapp', s.enable_whatsapp);
+            setVal('set_enable_marketplace', s.enable_marketplace);
+            setVal('set_enable_fidelity', s.enable_fidelity);
+            setVal('set_enable_referral', s.enable_referral);
+            setVal('set_enable_help_menu', s.enable_help_menu);
+            setVal('set_welcome_message_enabled', s.welcome_message_enabled);
+            setVal('set_enable_itinerary_btn', s.enable_itinerary_btn);
+
+            setVal('set_pts_ratio', s.points_ratio || 1);
+            setVal('set_pts_exchange', s.points_exchange || 100);
+            setVal('set_pts_credit_value', s.points_credit_value || 5);
+            setVal('set_ref_bonus', s.ref_bonus || 5);
+            setVal('set_fidelity_thresholds', s.fidelity_bonus_thresholds || '5,10');
+            if(window.renderPaliersGrid) renderPaliersGrid(s.fidelity_bonus_thresholds || '5,10');
+            setVal('set_fidelity_bonus_val', s.fidelity_bonus_amount || 10);
+            setVal('set_fidelity_min_spend', s.fidelity_min_spend || 50);
+
+            // Composants UI
+            setVal('set_ui_icon_catalog', s.ui_icon_catalog || '⚡️');
+            setVal('set_label_catalog', s.label_catalog || 'Catalogue');
+            setVal('set_label_catalog_title', s.label_catalog_title || '');
+
+            // Mise à jour visuelle immédiate du Dashboard
+            const dTitle = s.dashboard_title || 'LE PLUG IDF';
+            // Update header if we are in general settings or overview
+            if (document.getElementById('brand_name')) document.getElementById('brand_name').innerText = dTitle.toUpperCase();
+            if (document.getElementById('mobile_title')) document.getElementById('mobile_title').innerText = dTitle.toUpperCase();
+            document.title = dTitle;
+
+            setVal('set_ui_icon_orders', s.ui_icon_orders || '📦');
+            setVal('set_label_my_orders', s.label_my_orders || 'Mes Commandes');
+            setVal('set_ui_icon_contact', s.ui_icon_contact || '📱');
+            setVal('set_label_contact', s.label_contact || 'Mon contact privé');
+            setVal('set_ui_icon_profile', s.ui_icon_profile || '🎁');
+            setVal('set_label_profile', s.label_profile || 'Mon Profil & Parrainage');
+            setVal('set_ui_icon_livreur', s.ui_icon_livreur || '🛵');
+            setVal('set_label_livreur', s.label_livreur_space || 'Espace Livreur');
+            setVal('set_ui_icon_admin', s.ui_icon_admin || '⚙️');
+            setVal('set_label_admin_bot', s.label_admin_bot || 'Gestion Bot');
+            setVal('set_ui_icon_web', s.ui_icon_web || '🌐');
+            setVal('set_label_admin_web', s.label_admin_web || 'Dashboard Web');
+            setVal('set_ui_icon_wallet', s.ui_icon_wallet || '💳');
+            setVal('set_ui_icon_points', s.ui_icon_points || '⭐️');
+            setVal('set_ui_icon_channel', s.ui_icon_channel || '📢');
+            setVal('set_label_channel', s.label_channel || 'Lien Canal Telegram');
+            setVal('set_ui_icon_info', s.ui_icon_info || 'ℹ️');
+            setVal('set_label_info', s.label_info || 'Informations');
+            setVal('set_ui_icon_support', s.ui_icon_support || '❓');
+            setVal('set_label_support', s.label_support || 'Aide & Support');
+            setVal('set_ui_icon_leave_review', s.ui_icon_leave_review || '⭐️');
+            setVal('set_label_leave_review', s.label_leave_review || 'Laisser un avis / Commentaire');
+            setVal('set_ui_icon_view_reviews', s.ui_icon_view_reviews || '👥');
+            setVal('set_label_view_reviews', s.label_view_reviews || 'Consulter les avis');
+            setVal('set_ui_icon_welcome', s.ui_icon_welcome || '🏠');
+            setVal('set_label_welcome', s.label_welcome || 'Message d\'accueil');
+
+            // --- ALL FIELDS (SAFENED TO PREVENT CRASHES) ---
+            setVal('set_status_pending_label', s.status_pending_label);
+            setVal('set_ui_icon_pending', s.ui_icon_pending);
+            setVal('set_status_confirmed_label', s.status_confirmed_label);
+            setVal('set_ui_icon_confirmed', s.ui_icon_confirmed);
+            setVal('set_status_preparing_label', s.status_preparing_label);
+            setVal('set_ui_icon_preparing', s.ui_icon_preparing);
+            setVal('set_status_taken_label', s.status_taken_label);
+            setVal('set_ui_icon_taken', s.ui_icon_taken);
+            setVal('set_status_delivered_label', s.status_delivered_label);
+            setVal('set_ui_icon_success', s.ui_icon_success);
+            setVal('set_status_cancelled_label', s.status_cancelled_label);
+            setVal('set_ui_icon_error', s.ui_icon_error);
+
+            // Bot Content
+            setVal('set_msg_order_received_admin', s.msg_order_received_admin);
+            setVal('set_msg_order_confirmed_client', s.msg_order_confirmed_client);
+            setVal('set_btn_livreur_space', s.btn_livreur_space);
+            setVal('set_btn_back_menu', s.btn_back_menu);
+            setVal('set_msg_status_taken', s.msg_status_taken);
+            setVal('set_msg_status_delivered', s.msg_status_delivered);
+            setVal('set_msg_delay_report', s.msg_delay_report);
+            setVal('set_msg_arrival_soon', s.msg_arrival_soon);
+            setVal('set_msg_review_prompt', s.msg_review_prompt);
+            setVal('set_msg_review_thanks', s.msg_review_thanks);
+            setVal('set_btn_leave_review', s.btn_leave_review);
+            setVal('set_btn_view_reviews', s.btn_view_reviews);
+            setVal('set_btn_confirm_review', s.btn_confirm_review);
+            setVal('set_btn_back_menu_nav', s.btn_back_menu_nav);
+            setVal('set_btn_cart_resume', s.btn_cart_resume);
+            setVal('set_btn_client_mode', s.btn_client_mode);
+            setVal('set_msg_thanks_participation', s.msg_thanks_participation);
+            setVal('set_msg_your_answer', s.msg_your_answer);
+            setVal('set_label_reviews', s.label_reviews);
+            setVal('set_label_users', s.label_users);
+            setVal('set_default_wa_name', s.default_wa_name);
+
+            // Dynamically load others
+            const dynFields = [
+                'btn_back_generic', 'btn_back_quick_menu', 'btn_back_to_cart', 'btn_back_to_qty',
+                'btn_back_to_address', 'btn_back_to_options', 'btn_back_to_livreur_menu', 'btn_next', 'btn_previous',
+                'btn_clear_cart', 'btn_cancel_order', 'btn_cancel_my_order', 'btn_abandon_delivery',
+                'btn_send_now', 'btn_help_support', 'btn_where_is_delivery', 'btn_cancel', 'btn_cancel_alt',
+                'btn_dont_use_credit', 'btn_set_available', 'btn_notify_30min', 'btn_notify_10min',
+                'btn_rate_5', 'btn_rate_4', 'btn_rate_3', 'btn_rate_2', 'btn_rate_1',
+                'msg_session_expired', 'msg_product_not_found', 'msg_order_not_available', 'msg_order_not_found',
+                'msg_order_creation_error', 'msg_not_livreur', 'msg_access_denied',
+                'msg_catalog_empty', 'msg_cart_empty', 'msg_no_reviews_yet', 'msg_no_information',
+                'msg_no_active_deliveries', 'msg_empty_delivery_history', 'msg_no_active_orders',
+                'msg_cart_cleared', 'msg_thanks_for_feedback', 'msg_location_updated', 'msg_livreur_welcome',
+                'welcome_message', 'payment_modes', 'msg_choose_qty', 'msg_help_intro', 'show_broadcasts_btn',
+                'show_reviews_btn', 'enable_abandoned_cart_notifications', 'msg_abandoned_cart',
+                'force_subscribe', 'force_subscribe_channel_id', 'priority_delivery_enabled', 'priority_delivery_price',
+                'auto_approve_new', 'notify_on_approval'
+            ];
+            dynFields.forEach(key => setVal('set_' + key, s[key]));
+        }
+
         function togglePassVisibility(id) {
             const el = document.getElementById(id);
             if (el) el.type = el.type === 'password' ? 'text' : 'password';
@@ -7155,14 +7159,9 @@
                 await api('/settings', 'POST', s);
                 showToast('Paramètres mis à jour !', 'success');
                 
-                // Correction & Feedback UI pour le mot de passe
-                if (s.admin_password) {
-                    setVal('set_current_password', '********'); // Obscurcir l'affichage
-                    setVal('set_admin_password', ''); // Vider le champ après sauvegarde
-                }
-
-                // Recharger les settings depuis le serveur pour confirmation
+                // Recharger les settings depuis le serveur pour confirmation et RE-RAFRAICHIR l'UI
                 window.appSettings = await api('/settings', 'GET', null, true);
+                renderSettingsUI(window.appSettings);
                 updateNavbarIcons();
             } catch (err) { showToast(err.message, 'error'); }
         }
