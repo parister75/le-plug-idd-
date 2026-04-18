@@ -2108,10 +2108,12 @@
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal-box">
             <h3 id="modalTitle">Confirmation</h3>
-            <p id="modalMessage">Êtes-vous sûr ?</p>
-            <div class="modal-actions">
+            <div id="modalBody">
+                <p id="modalMessage">Êtes-vous sûr ?</p>
+            </div>
+            <div class="modal-actions" id="modalActions">
                 <button class="btn btn-outline" onclick="closeModal(false)">Annuler</button>
-                <button class="btn btn-accent" onclick="closeModal(true)">Confirmer</button>
+                <button class="btn btn-accent" id="modalConfirmBtn" onclick="closeModal(true)">Confirmer</button>
             </div>
         </div>
     </div>
@@ -2794,7 +2796,10 @@
                 <div class="card">
                     <div class="flex justify-between align-center" style="margin-bottom:20px;">
                         <h3 style="margin:0;">Catalogue Produits</h3>
-                        <span class="text-muted" style="font-size:12px;">Faites glisser ≡ pour réordonner</span>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span class="text-muted" style="font-size:12px;">Faites glisser ≡ pour réordonner</span>
+                            <button class="btn btn-accent btn-sm" onclick="saveCurrentProductOrder()">💾 Enregistrer l'ordre</button>
+                        </div>
                     </div>
                     <div id="product-cards-list" class="product-cards-container">
                         <!-- Les cartes produits s'afficheront ici -->
@@ -3143,7 +3148,10 @@
 
             <!-- Supplier Form -->
             <div id="supplierFormCard" class="card" style="display:none; margin-bottom:20px;">
-                <h3 id="supplierFormTitle">➕ Nouveau Fournisseur</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 id="supplierFormTitle" style="margin:0;">➕ Nouveau Fournisseur</h3>
+                    <button class="btn btn-primary btn-sm" onclick="saveSupplier()">💾 Enregistrer</button>
+                </div>
                 <input type="hidden" id="supplierId">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div><label>Nom *</label><input id="supplierName" placeholder="Nom du fournisseur" class="form-control"></div>
@@ -3370,7 +3378,10 @@
 
             <!-- Onglet Général -->
             <div id="sub-settings-general" class="card">
-                <h3>Général</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">Général</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
                     <div>
                         <label>Nom du Bot</label>
@@ -3415,7 +3426,10 @@
 
             <!-- Onglet Sécurité -->
             <div id="sub-settings-security" class="card" style="display:none;">
-                <h3>Sécurité & Rôles Administrateurs</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">Sécurité & Rôles Administrateurs</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                </div>
                 <label>Administrateurs (IDs Telegram - 1 par ligne)</label>
                 <div id="admins_list_container"
                     style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
@@ -3574,13 +3588,14 @@
 
             <!-- Onglet Fidélité -->
             <div id="sub-settings-fidelity" class="card" style="display:none;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-                    <div class="stat-badge" style="background:rgba(255,215,0,0.1); color:#ffd700;">⭐</div>
-                    <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="stat-badge" style="background:rgba(255,215,0,0.1); color:#ffd700;">⭐</div>
                         <h3 style="margin:0;">Système de Fidélité (Points)</h3>
-                        <p style="color:var(--text-muted); font-size:12px;">Récompensez vos clients fidèles par des points convertibles en crédit.</p>
                     </div>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
                 </div>
+                <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Récompensez vos clients fidèles par des points convertibles en crédit.</p>
 
                 <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:20px; background:rgba(255,255,255,0.03); padding:20px; border-radius:12px; border:1px solid var(--border);">
                     <div>
@@ -3639,7 +3654,10 @@
 
             <!-- Onglet Paiement -->
             <div id="sub-settings-payment" class="card" style="display:none;">
-                <h3>Modes de Paiement</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">Modes de Paiement</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                </div>
                 <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Configurez les options de paiement proposées lors de la confirmation de commande.</p>
                 
                 <div id="payment_modes_container" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
@@ -3658,7 +3676,10 @@
 
             <!-- Onglet Contenu (Bot Content) -->
             <div id="sub-settings-content" class="card" style="display:none;">
-                <h3>Contenu du Bot (Textes & Boutons)</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">Contenu du Bot (Textes & Boutons)</h3>
+                    <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
+                </div>
                 <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">Personnalisez tous les messages envoyés par le bot lors du processus de commande.</p>
                 
                 <h4 style="color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:5px;">Processus de Commande</h4>
@@ -4169,10 +4190,57 @@
         let _modalResolve = null;
         function showModal(title, message) {
             document.getElementById('modalTitle').textContent = title;
-            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalBody').innerHTML = `<p id="modalMessage">${message}</p>`;
             document.getElementById('modalOverlay').classList.add('active');
+            document.getElementById('modalConfirmBtn').textContent = "Confirmer";
             return new Promise(resolve => { _modalResolve = resolve; });
         }
+
+        /**
+         * Affiche une modale de confirmation stylisée (remplace confirm())
+         */
+        async function showConfirmModal(title, message, confirmLabel = "Confirmer") {
+            const ok = await showModal(title, message);
+            if (ok) return true;
+            return false;
+        }
+
+        /**
+         * Affiche une modale avec un formulaire (remplace prompt())
+         * fields: [{ label, id, type, value, placeholder }]
+         */
+        function showFormModal(title, fields, onSave) {
+            document.getElementById('modalTitle').textContent = title;
+            let html = '<div style="display:flex; flex-direction:column; gap:15px; margin-top:10px;">';
+            fields.forEach(f => {
+                html += `
+                    <div>
+                        <label style="display:block; font-size:12px; margin-bottom:5px; color:var(--text-muted);">${f.label}</label>
+                        <input type="${f.type || 'text'}" id="modal_f_${f.id}" value="${f.value || ''}" placeholder="${f.placeholder || ''}" style="width:100%;">
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('modalConfirmBtn').textContent = "Sauvegarder";
+            document.getElementById('modalOverlay').classList.add('active');
+
+            return new Promise(resolve => {
+                _modalResolve = async (result) => {
+                    if (!result) {
+                        resolve(null);
+                    } else {
+                        const vals = {};
+                        fields.forEach(f => {
+                            vals[f.id] = document.getElementById('modal_f_' + f.id).value;
+                        });
+                        if (onSave) await onSave(vals);
+                        resolve(vals);
+                    }
+                };
+            });
+        }
+
         function closeModal(result) {
             document.getElementById('modalOverlay').classList.remove('active');
             if (_modalResolve) { _modalResolve(result); _modalResolve = null; }
@@ -5434,23 +5502,21 @@
         }
 
         async function addUserManually() {
-            const id = prompt("ID Telegram de l'utilisateur (obligatoire) :");
-            if (!id) return;
-            const name = prompt("Prénom / Nom (facultatif) :");
-            const user = prompt("Username Telegram (facultatif, sans @) :");
-
-            try {
+            await showFormModal("Ajouter un Utilisateur", [
+                { label: "ID Telegram (obligatoire)", id: "id", placeholder: "Ex: 12345678" },
+                { label: "Prénom / Nom (facultatif)", id: "name", placeholder: "Ex: Jean Dupont" },
+                { label: "Username Telegram (facultatif)", id: "user", placeholder: "Ex: username_sans_at" }
+            ], async (vals) => {
+                if (!vals.id) throw new Error("ID Telegram obligatoire");
                 await api('/users/add', 'POST', {
-                    telegram_id: id,
-                    first_name: name || '',
-                    username: user || ''
+                    telegram_id: vals.id,
+                    first_name: vals.name || '',
+                    username: vals.user || ''
                 });
                 showToast("Utilisateur ajouté avec succès !");
                 loadData('users');
                 loadData('overview');
-            } catch (e) {
-                showToast("Erreur : " + e.message, 'error');
-            }
+            });
         }
 
         async function republishBC(id) {
@@ -6417,18 +6483,14 @@
         }
 
         async function editUserProfileUI(userId, currentName, currentPhone) {
-            const name = prompt("Modifier le nom du client :", currentName);
-            if (name === null) return;
-            const phone = prompt("Associer à un numéro de téléphone :", currentPhone);
-            if (phone === null) return;
-            
-            try {
-                await api('/users/profile', 'POST', { userId, first_name: name, phone: phone });
+            await showFormModal("Modifier le Profil", [
+                { label: "Nom du client", id: "name", value: currentName },
+                { label: "Numéro de téléphone", id: "phone", value: currentPhone, placeholder: "Ex: +336..." }
+            ], async (vals) => {
+                await api('/users/profile', 'POST', { userId, first_name: vals.name, phone: vals.phone });
                 showToast("Profil mis à jour !", "success");
                 loadData('users');
-            } catch (e) {
-                showToast("Erreur : " + e.message, "error");
-            }
+            });
         }
 
 
@@ -6576,46 +6638,48 @@
         }
 
         async function editWalletUI(userId, current) {
-            const val = prompt('Nouveau solde du portefeuille (€) :', current);
-            if (val === null) return;
-            const amount = parseFloat(val);
-            if (isNaN(amount)) return showToast('Montant invalide', 'error');
-            try {
-                await api('/users/wallet', 'POST', { userId, amount });
-                showToast('Crédit mis à jour !');
+            await showFormModal("Modifier le Portefeuille", [
+                { label: "Nouveau solde du portefeuille (€)", id: "amount", type: "number", value: current }
+            ], async (vals) => {
+                const amount = parseFloat(vals.amount);
+                if (isNaN(amount)) throw new Error("Montant invalide");
+                await api('/users/wallet', 'POST', { userId, wallet_balance: amount });
+                showToast('Crédit mis à jour !', 'success');
                 loadData('users');
-            } catch (e) { showToast(e.message, 'error'); }
+            });
         }
 
         async function toggleBlock(id, doBlock) {
             const label = doBlock ? 'Bloquer' : 'Débloquer';
-            if (!confirm(`Confirmer le ${label} de cet utilisateur ?`)) return;
+            const ok = await showConfirmModal("Confirmation", `Confirmer le ${label} de cet utilisateur ?`);
+            if (!ok) return;
             const path = doBlock ? '/users/block' : '/users/unblock';
             try {
                 await api(path, 'POST', { id });
-                showToast(`Utilisateur ${doBlock ? 'bloqué' : 'débloqué'} !`);
+                showToast(`Utilisateur ${doBlock ? 'bloqué' : 'débloqué'} !`, 'success');
                 loadData('users');
                 loadData('ov', true); // Refresh top counters
             } catch (e) { showToast(e.message, 'error'); }
         }
 
         async function editPointsUI(userId, current) {
-            const val = prompt('Nouveau solde de points :', current);
-            if (val === null) return;
-            const points = parseInt(val);
-            if (isNaN(points)) return showToast('Nombre de points invalide', 'error');
-            try {
+            await showFormModal("Modifier les Points", [
+                { label: "Nouveau solde de points", id: "points", type: "number", value: current }
+            ], async (vals) => {
+                const points = parseInt(vals.points);
+                if (isNaN(points)) throw new Error("Nombre de points invalide");
                 await api('/users/points', 'POST', { userId, points });
-                showToast('Points mis à jour !');
+                showToast('Points mis à jour !', 'success');
                 loadData('users');
-            } catch (e) { showToast(e.message, 'error'); }
+            });
         }
 
         async function approveUserJS(userId) {
-            if (!confirm(`Confirmer l'approbation de cet utilisateur ?`)) return;
+            const ok = await showConfirmModal("Approbation", "Confirmer l'approbation de cet utilisateur ?");
+            if (!ok) return;
             try {
                 await api('/users/approve', 'POST', { userId });
-                showToast('Utilisateur approuvé !');
+                showToast('Utilisateur approuvé !', 'success');
                 loadData('users');
                 loadData('ov', true); // Refresh top counters
             } catch (e) { showToast(e.message, 'error'); }
@@ -7031,7 +7095,14 @@
                 });
 
                 await api('/settings', 'POST', s);
-                showToast('Paramètres mis à jour !');
+                showToast('Paramètres mis à jour !', 'success');
+                
+                // Correction & Feedback UI pour le mot de passe
+                if (s.admin_password) {
+                    setVal('set_current_password', '********'); // Obscurcir l'affichage
+                    setVal('set_admin_password', ''); // Vider le champ après sauvegarde
+                }
+
                 // Recharger les settings depuis le serveur pour confirmation
                 window.appSettings = await api('/settings', 'GET', null, true);
                 updateNavbarIcons();
@@ -7530,19 +7601,43 @@
                             ${p.description ? '<p style="font-size:12px; color:var(--text-muted); margin:4px 0 8px;">' + p.description.substring(0, 80) + '</p>' : ''}
                             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                                 <div class="mp-qty-selector" style="display:flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; background: rgba(255,255,255,0.05);">
-                                    <button class="btn btn-sm" style="background:none; border:none; border-radius:0; width:30px; padding:0; color:#fff; font-size:18px; line-height:1;" onclick="const inp=document.getElementById('qty-mp-${p.id}'); if(inp.value>1)inp.value--;">-</button>
-                                    <input type="number" value="1" min="1" id="qty-mp-${p.id}" 
-                                        style="width:40px; text-align:center; background:none; border:none; color:#fff !important; font-size:16px; font-weight:800; padding:4px 0; margin:0;"
-                                        oninput="if(this.value<1)this.value=1;">
-                                    <button class="btn btn-sm" style="background:none; border:none; border-radius:0; width:30px; padding:0; color:#fff; font-size:18px; line-height:1;" onclick="const inp=document.getElementById('qty-mp-${p.id}'); inp.value++;">+</button>
-                                </div>
-                                <button class="btn btn-sm btn-accent" onclick="addWithQty('${p.id}')" style="flex:1; border-radius:10px; height: 36px; font-weight: 700;">🛒 Ajouter</button>
-                            </div>
-                            <div style="display:flex; gap:6px; margin-top:8px;">
-                                <button class="btn btn-sm btn-outline" style="flex:1;" onclick="editMpProduct('${p.id}')">✏️ Edit</button>
-                                <button class="btn btn-sm btn-outline" style="flex:1; border-color:var(--accent); color:var(--accent);" onclick="promoteMpProduct('${p.id}')">✨ Publier au Catalogue Client</button>
-                                <button class="btn btn-sm btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="deleteMpProduct('${p.id}')">🗑</button>
-                            </div>
+                                    async function promoteMpProduct(id) {
+            const ok = await showConfirmModal("Promotion Boutique", "Voulez-vous mettre ce produit en vente dans le Catalogue Client (Vente au détail) ?\n\nLe produit sera transféré du Marché (Gros) vers la boutique publique.");
+            if (!ok) return;
+            try {
+                const res = await api(`/marketplace/products/${id}/transfer`, 'POST');
+                showToast('✅ Produit transféré avec succès au catalogue !', 'success');
+                loadMarketplaceProducts();
+            } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
+        }
+
+        async function editMpProduct(id) {
+            const p = mpProductsData.find(x => x.id === id);
+            if (!p) return;
+            await showFormModal("Édition Rapide", [
+                { label: "Nouveau prix (€)", id: "price", type: "number", value: p.price },
+                { label: "Nouveau stock", id: "stock", type: "number", value: p.stock }
+            ], async (vals) => {
+                await api('/marketplace/products', 'POST', {
+                    id: p.id,
+                    price: parseFloat(vals.price) || p.price,
+                    stock: parseInt(vals.stock) || p.stock,
+                    is_available: parseInt(vals.stock) > 0
+                }, true);
+                showToast('✅ Produit mis à jour', 'success');
+                loadMarketplaceProducts();
+            });
+        }
+
+        async function deleteMpProduct(id) {
+            const ok = await showConfirmModal("Suppression", "Supprimer ce produit marketplace ?");
+            if (!ok) return;
+            try {
+                await api('/marketplace/products/' + id, 'DELETE', null, true);
+                showToast('🗑 Produit supprimé', 'success');
+                loadMarketplaceProducts();
+            } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
+        }       </div>
                         </div>
                     </div>`;
             }).join('');
@@ -7866,6 +7961,18 @@
             }
             setTimeout(staggeredPreload, 3000); 
         })();
+        async function saveCurrentProductOrder() {
+            const listContainer = document.getElementById('product-cards-list');
+            if (!listContainer) return;
+            const ids = Array.from(listContainer.querySelectorAll('.product-card')).map(el => el.dataset.id);
+            if (ids.length === 0) return;
+            try {
+                await reorderProducts(ids);
+                showToast('Ordre enregistré avec succès !', 'success');
+            } catch (err) {
+                showToast('Erreur lors de l\'enregistrement de l\'ordre.', 'error');
+            }
+        }
     </script>
 </body>
 
