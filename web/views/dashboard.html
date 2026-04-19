@@ -662,6 +662,14 @@
             color: #ff453a;
         }
 
+        @keyframes highlight-pulse {
+            0% { background: rgba(255, 0, 80, 0.2); border-color: var(--accent); transform: scale(1.02); }
+            100% { background: rgba(255, 255, 255, 0.03); border-color: var(--border); transform: scale(1); }
+        }
+        .highlight-new {
+            animation: highlight-pulse 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         /* --- MOBILE NAVIGATION --- */
         .mobile-nav {
             display: none;
@@ -7234,7 +7242,7 @@
             const container = document.getElementById('custom_links_container');
             if (!container) return;
             const div = document.createElement('div');
-            div.className = 'custom-link-row';
+            div.className = 'custom-link-row highlight-new'; // Add highlight class
             div.style = "display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:8px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); transition:0.2s;";
             div.innerHTML = `
                 <div class="drag-handle" style="cursor:grab; opacity:0.3; padding:0 5px;">⋮⋮</div>
@@ -7244,6 +7252,14 @@
                 <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
             `;
             container.appendChild(div);
+
+            // Scroll to bottom with a slight delay to ensure render
+            setTimeout(() => {
+                div.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+            
+            // Remove highlight class after animation
+            setTimeout(() => div.classList.remove('highlight-new'), 1500);
         }
 
         async function delUser(id) {
