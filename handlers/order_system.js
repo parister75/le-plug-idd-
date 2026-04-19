@@ -197,7 +197,8 @@ function setupOrderSystem(bot) {
             (product.description ? `\n<i>${product.description}</i>\n` : "") +
             `\n💎 ` + t(user, 'label_choose_qty', '<b>Choisissez votre quantité :</b>');
 
-        const multiplier = parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1;
+        const rawVal = String(product.unit_value || '1');
+        const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
         const multipliers = [1, 2, 3, 4, 5, 10];
         const qtyRows = [];
         const unit = product.unit || '';
@@ -304,7 +305,8 @@ function setupOrderSystem(bot) {
         });
 
         if (product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
-            return askUnit(ctx, product, qty);
+            const nSachets = Math.round(qty / unitValue) || 1;
+            return askUnitSelection(ctx, product, nSachets);
         }
 
         await showAddToCartChoice(ctx, product, qty, totalPrice);
@@ -318,7 +320,8 @@ function setupOrderSystem(bot) {
         if (unitAmount) pending.chosen_unit_amount = unitAmount;
 
         const user = ctx.state?.user || await getUser(userId);
-        const multiplier = parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1;
+        const rawVal = String(product.unit_value || '1');
+        const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
         const unit = product.unit || '';
         const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
         
@@ -635,7 +638,9 @@ function setupOrderSystem(bot) {
             if (product.is_bundle) pending.is_bundle = true;
         }
 
-        await showAddToCartChoice(ctx, product, qty, finalPrice, `${amount}${product.unit}${bundleText}`);
+        const totalWeight = amount * qty;
+        const description = `${qty} sachet${qty > 1 ? 's' : ''} de ${amount}${product.unit}${bundleText}`;
+        await showAddToCartChoice(ctx, product, totalWeight, finalPrice, description);
     });
 
     async function promptAddress(ctx, product, qty, totalPrice) {
