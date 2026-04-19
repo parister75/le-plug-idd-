@@ -1103,6 +1103,27 @@ function createServer() {
         }
     });
 
+    // Settings Publics (pour l'App Mobile)
+    app.get('/api/public/settings', async (req, res) => {
+        try {
+            const settings = await getAppSettings();
+            // On ne renvoie que les champs non-sensibles
+            const publicData = {
+                bot_name: settings.bot_name,
+                custom_links: settings.custom_links,
+                accent_color: settings.accent_color,
+                dashboard_title: settings.dashboard_title,
+                welcome_message: settings.welcome_message,
+                ui_icon_catalog: settings.ui_icon_catalog,
+                label_catalog: settings.label_catalog
+            };
+            res.json({ success: true, data: publicData });
+        } catch (e) {
+            console.error('❌ Public settings error:', e);
+            res.status(500).json({ error: 'Erreur serveur' });
+        }
+    });
+
     app.get('/api/settings', authMiddleware, async (req, res) => {
         try { res.json(await getAppSettings()); }
         catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }

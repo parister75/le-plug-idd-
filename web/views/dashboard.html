@@ -5935,11 +5935,29 @@
                 clContainer.innerHTML = '';
                 let cLinks = [];
                 try {
-                    cLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
+                    // Essayer d'abord les données du serveur
+                    const serverLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
+                    if (serverLinks && Array.isArray(serverLinks) && serverLinks.length > 0) {
+                        cLinks = serverLinks;
+                        // Mettre à jour le localStorage avec la version serveur
+                        localStorage.setItem('leplugidf_custom_links', JSON.stringify(cLinks));
+                    } else {
+                        // Fallback : charger depuis localStorage si le serveur renvoie vide
+                        const stored = localStorage.getItem('leplugidf_custom_links');
+                        if (stored) cLinks = JSON.parse(stored);
+                    }
                 } catch (e) { console.error('Parse custom_links failed', e); }
                 if (cLinks && Array.isArray(cLinks)) {
                     cLinks.forEach(link => addCustomLinkRow(link.icon, link.label, link.url));
                 }
+
+                // Initialisation du tri (Sortable)
+                if (window._customLinksSortable) window._customLinksSortable.destroy();
+                window._customLinksSortable = new Sortable(clContainer, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    background: 'rgba(255,255,255,0.02)'
+                });
             }
 
             // Plateformes
@@ -7041,7 +7059,7 @@
                         icon: row.querySelector('.link-icon-input').value,
                         label: row.querySelector('.link-label-input').value,
                         url: row.querySelector('.link-url-input').value
-                    })).filter(l => l.url.trim() !== '')),
+                    })).filter(l => l.url.trim() !== '' || l.label.trim() !== '')),
                     points_ratio: parseFloat(getVal('set_pts_ratio')) || 1,
                     points_exchange: parseInt(getVal('set_pts_exchange')) || 100,
                     points_credit_value: parseFloat(getVal('set_pts_credit_value')) || 5,
@@ -7169,6 +7187,12 @@
                 await api('/settings', 'POST', s);
                 showToast('Paramètres mis à jour !', 'success');
 
+                // Backup localStorage (fallback si la colonne DB n'existe pas encore)
+                try {
+                    const linksToStore = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
+                    localStorage.setItem('leplugidf_custom_links', JSON.stringify(linksToStore));
+                } catch(e) {}
+
                 // Mise à jour immédiate : fusionner les nouvelles valeurs dans appSettings et re-rendre
                 window.appSettings = { ...(window.appSettings || {}), ...s };
                 renderSettingsUI(window.appSettings);
@@ -7211,11 +7235,12 @@
             if (!container) return;
             const div = document.createElement('div');
             div.className = 'custom-link-row';
-            div.style = "display:flex; gap:8px; align-items:center;";
+            div.style = "display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:8px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); transition:0.2s;";
             div.innerHTML = `
-                <input class="link-icon-input" value="${icon}" placeholder="Icon" style="width:45px; text-align:center;">
-                <input class="link-label-input" value="${label}" placeholder="Libellé (ex: Instagram)" style="flex:1;">
-                <input class="link-url-input" value="${url}" placeholder="https://..." style="flex:2;">
+                <div class="drag-handle" style="cursor:grab; opacity:0.3; padding:0 5px;">⋮⋮</div>
+                <input class="link-icon-input" value="${icon}" placeholder="Icon" style="width:45px; text-align:center; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
+                <input class="link-label-input" value="${label}" placeholder="Libellé (ex: Instagram)" style="flex:1; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
+                <input class="link-url-input" value="${url}" placeholder="https://..." style="flex:2; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
                 <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
             `;
             container.appendChild(div);

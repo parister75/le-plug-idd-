@@ -522,6 +522,18 @@ async function getMainMenuKeyboard(ctx, settings, user, isFournisseur = false, i
     }
     if (spaces.length > 0) buttons.push(spaces);
 
+    // Ligne 6 : Liens Personnalisés (Dynamique)
+    try {
+        const customLinks = typeof settings.custom_links === 'string' ? JSON.parse(settings.custom_links) : (settings.custom_links || []);
+        if (Array.isArray(customLinks)) {
+            customLinks.forEach(link => {
+                if (link.url && link.label) {
+                    buttons.push([Markup.button.url(`${link.icon || '🔗'} ${link.label}`, link.url)]);
+                }
+            });
+        }
+    } catch (e) { console.error('[MAIN_MENU] Error parsing custom_links:', e); }
+
     // Ligne de fin : Paramètres & Admin
     const footers = [Markup.button.callback(`${settings.btn_settings || '⚙️'} ${t(user, 'btn_settings', 'Réglages')}`, 'user_settings')];
     if (user?.is_admin || isAdminUser) {
