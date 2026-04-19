@@ -208,13 +208,13 @@ function setupOrderSystem(bot) {
         for (let i = 0; i < multipliers.length; i += 2) {
             const m1 = multipliers[i];
             const q1 = m1 * multiplier;
-            const label1 = multiplier > 1 ? `${m1} sachet${m1 > 1 ? 's' : ''} (${q1}${unitDisplay})` : `${q1}${unitDisplay}`;
+            const label1 = multiplier > 1 ? `${m1} sachet${m1 > 1 ? 's' : ''}` : `${q1}${unitDisplay}`;
             const row = [Markup.button.callback(label1, `qty_${productId}_${q1}`)];
             
             if (i + 1 < multipliers.length) {
                 const m2 = multipliers[i+1];
                 const q2 = m2 * multiplier;
-                const label2 = multiplier > 1 ? `${m2} sachet${m2 > 1 ? 's' : ''} (${q2}${unitDisplay})` : `${q2}${unitDisplay}`;
+                const label2 = multiplier > 1 ? `${m2} sachet${m2 > 1 ? 's' : ''}` : `${q2}${unitDisplay}`;
                 row.push(Markup.button.callback(label2, `qty_${productId}_${q2}`));
             }
             qtyRows.push(row);
@@ -577,7 +577,7 @@ function setupOrderSystem(bot) {
         return await askScheduling(ctx);
     });
 
-    async function askUnit(ctx, product, qty) {
+    async function askUnitSelection(ctx, product, qty) {
         const settings = (ctx.state?.settings || await getAppSettings());
         const unit = product.unit;
         // Support comma and remove non-numeric chars for baseVal calculation
