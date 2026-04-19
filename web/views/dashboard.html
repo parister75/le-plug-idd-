@@ -3413,6 +3413,18 @@
                         <input id="set_dashboard_url" placeholder="https://votre-app.railway.app/dashboard">
                     </div>
                 </div>
+
+                <h3 style="margin-top:25px;">Description du Bot (Telegram)</h3>
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    <div>
+                        <label>Que peut faire ce bot ? (Description complète affichée au start)</label>
+                        <textarea id="set_bot_description" style="height:150px;" placeholder="Bienvenus chez..."></textarea>
+                    </div>
+                    <div>
+                        <label>A propos du bot (Description courte / About)</label>
+                        <input id="set_bot_short_description" placeholder="Service de livraison express...">
+                    </div>
+                </div>
                 <label style="margin-top:15px;">Couleur Accent</label>
                 <input type="color" id="set_color" style="height:45px; padding:5px; max-width:120px;">
 
@@ -7054,6 +7066,8 @@
                 const s = {
                     bot_name: getVal('set_bot_name'),
                     dashboard_title: getVal('set_title'),
+                    bot_description: getVal('set_bot_description'),
+                    bot_short_description: getVal('set_bot_short_description'),
                     accent_color: getVal('set_color'),
                     // Privileged Users (Multi-ID)
                     admin_telegram_id: Array.from(document.querySelectorAll('.admin-id-input')).map(i => i.value.trim()).filter(Boolean).join(', '),

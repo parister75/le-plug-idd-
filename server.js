@@ -1136,6 +1136,19 @@ function createServer() {
                 delete updates.admin_password;
             }
             await updateAppSettings(updates);
+
+            // Immediate Telegram API update for bot descriptions
+            if (updates.bot_description || updates.bot_short_description) {
+                const bot = getBotInstance();
+                if (bot) {
+                    if (updates.bot_description) {
+                        bot.telegram.setMyDescription(updates.bot_description).catch(e => console.error('TG Desc update error:', e.message));
+                    }
+                    if (updates.bot_short_description) {
+                        bot.telegram.setMyShortDescription(updates.bot_short_description).catch(e => console.error('TG Short Desc update error:', e.message));
+                    }
+                }
+            }
             res.json({ success: true });
         } catch (e) {
             console.error('❌ Settings update error:', e);

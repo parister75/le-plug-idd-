@@ -1952,6 +1952,8 @@ const SETTINGS_DEFAULTS = {
     enable_referral: true,
     enable_help_menu: true,
     dashboard_title: 'LE PLUG IDF',
+    bot_description: 'Bienvenus 🙏 chez le Plug IDF , spécialisé en produit haut de gamme Douce🥦🍫🌿 & Dur 💊❄️🐴🍾💎🥤\n\n📍 Nos Meet-Up 📍\nParis Sud - Paris Nord - 94\n\n🚗Livraison 🚗\nParis 🗼 - Île-de-France 🇫🇷 et Départements voisin ⛺️ sous certaines conditions 📁\nWhathsApp 📱 : 0758917153 / @Lepdg_idf\n\nFaire /start ou /catalogue',
+    bot_short_description: 'Service de livraison express LE PLUG IDF',
     label_catalog_title: '',
     priority_delivery_enabled: false,
     priority_delivery_price: 15,
