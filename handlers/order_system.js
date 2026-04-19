@@ -164,7 +164,8 @@ function setupOrderSystem(bot) {
         clearAllAwaitingMaps(ctx.from.id);
         const productId = ctx.match[1];
         const product = await getProduct(productId);
-        const settings = ctx.state?.settings || await getAppSettings();
+        const products = await getProducts(); // Liste locale pour les logs et bundles
+        const settings = (ctx.state?.settings || await getAppSettings());
 
         if (!product) return safeEdit(ctx, settings.msg_product_not_found || '❌ Produit non trouvé.', [Markup.button.callback(settings.btn_back_menu || '◀️ Retour Menu', 'view_catalog')]);
 
@@ -243,6 +244,7 @@ function setupOrderSystem(bot) {
         const productId = ctx.match[1];
         const qty = parseInt(ctx.match[2]);
         const product = await getProduct(productId);
+        const products = await getProducts(); // Local list for logging/bundles
         const settings = (ctx.state?.settings || await getAppSettings());
 
         if (!product) {
@@ -283,7 +285,7 @@ function setupOrderSystem(bot) {
             const config = product.bundle_config || { trigger_qty: 1, offered_qty: 1, offered_id: null };
             const trigger = config.trigger_qty || 1;
             const offered = config.offered_qty || 1;
-            const numGifts = Math.floor(qty / trigger) * offered;
+            const numGifts = Math.floor(packsSelected / trigger) * offered;
 
             if (numGifts > 0) {
                 if (config.offered_id) {
@@ -301,7 +303,8 @@ function setupOrderSystem(bot) {
             totalPrice,
             productName: product.name + bundleText,
             is_bundle: product.is_bundle,
-            supplier_id: product.supplier_id // IMPORTANT pour la notification fournisseur
+            supplier_id: product.supplier_id, // IMPORTANT pour la notification fournisseur
+            nSachets: (unitValue > 1) ? packsSelected : null
         });
 
         if (product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
@@ -413,7 +416,8 @@ function setupOrderSystem(bot) {
         cart.forEach((item, idx) => {
             const price = parseFloat(item.totalPrice);
             total += price;
-            summary += `${idx + 1}. ${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${price.toFixed(2)}€</b>\n`;
+            const qtyLabel = item.nSachets ? `(x${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''})` : `(x${item.qty})`;
+            summary += `${idx + 1}. ${item.productName} <b>${qtyLabel}</b>${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${price.toFixed(2)}€</b>\n`;
             // Bouton de suppression individuelle
             buttons.push([Markup.button.callback(`❌ ${t(user, 'btn_back', 'Retirer')} ${item.productName}`, `remove_item_${idx}`)]);
         });
