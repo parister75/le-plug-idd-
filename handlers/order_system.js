@@ -178,10 +178,15 @@ function setupOrderSystem(bot) {
         // NOUVEAU: Affichage des prix dégressifs
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
             promoText += `\n📉 <b>PRIX DÉGRESSIFS :</b>\n`;
-            const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? ` ${product.unit}` : ' unités';
+            const multiplier = parseInt(product.unit_value) || 1;
+            const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? (product.unit) : 'unités';
+            
             product.discounts_config.forEach(d => {
-                const discountTotal = d.total || d.total_price;
-                promoText += `• ${d.qty}${unitSuffix} : <b>${discountTotal}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
+                const discountTotal = parseFloat(d.total || d.total_price || 0);
+                const displayQty = d.qty; // La config stocke le nombre total d'unités demandées
+                // Si conditionnement 5g, 1 unité = 5g. Donc d.qty=2 -> 10g.
+                const weightText = multiplier > 1 ? ` (${d.qty * multiplier}${unitSuffix})` : '';
+                promoText += `• ${d.qty} ${multiplier > 1 ? 'pack(s)' : unitSuffix}${weightText} : <b>${discountTotal.toFixed(2)}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
             });
         }
 
@@ -192,7 +197,8 @@ function setupOrderSystem(bot) {
             (product.description ? `\n<i>${product.description}</i>\n` : "") +
             `\n💎 ` + t(user, 'label_choose_qty', '<b>Choisissez votre quantité :</b>');
 
-        const qtyOptions = [1, 2, 3, 4, 5, 10];
+        const unitValue = parseInt(product.unit_value) || 1;
+        const qtyOptions = [1, 2, 3, 4, 5, 10].map(q => q * unitValue);
         const qtyRows = [];
         const unit = product.unit || '';
         const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
@@ -240,14 +246,31 @@ function setupOrderSystem(bot) {
         }
 
         // Calcul du prix avec gestion des paliers dégressifs
-        let totalPriceValue = product.price * qty;
+        const unitValue = parseInt(product.unit_value) || 1;
+        const basePrice = parseFloat(product.price) || 0;
+        
+        // La quantité "interne" pour les réductions est basée sur le nombre de "packs" (unit_value)
+        const packsSelected = qty / unitValue; 
+        
+        let totalPriceValue = basePrice * packsSelected;
+
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
+            // Trier les paliers par quantité décroissante
             const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
-            const bestDiscount = sortedDiscounts.find(d => qty >= d.qty);
+            // Trouver le meilleur palier pour le nombre de packs sélectionnés
+            const bestDiscount = sortedDiscounts.find(d => packsSelected >= d.qty);
+            
             if (bestDiscount) {
-                totalPriceValue = bestDiscount.total_price + (qty - bestDiscount.qty) * product.price;
+                const discountAmount = parseFloat(bestDiscount.total || bestDiscount.total_price || 0);
+                totalPriceValue = discountAmount + (packsSelected - bestDiscount.qty) * basePrice;
             }
         }
+        
+        if (isNaN(totalPriceValue)) {
+            console.error(`❌ [NaN Fix] totalPriceValue is NaN for product ${productId}. basePrice=${basePrice}, packsSelected=${packsSelected}, qty=${qty}`);
+            totalPriceValue = 0;
+        }
+        
         const totalPrice = totalPriceValue.toFixed(2);
 
         let bundleText = "";
@@ -291,7 +314,13 @@ function setupOrderSystem(bot) {
         if (unitAmount) pending.chosen_unit_amount = unitAmount;
 
         const user = ctx.state?.user || await getUser(userId);
-        const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty}x {name}</b>', { qty, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + '\n' +
+        const unitValue = parseInt(product.unit_value) || 1;
+        const unit = product.unit || '';
+        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
+        
+        const qtyLabel = unitValue > 1 ? `${qty}${unitDisplay}` : `${qty}x`;
+
+        const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty} {name}</b>', { qty: qtyLabel, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + '\n' +
             t(user, 'label_price_total', '💰 Prix :') + ` <b>${totalPrice}€</b>\n\n` +
             t(user, 'msg_what_to_do', 'Que voulez-vous faire ?');
 

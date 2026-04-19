@@ -2132,7 +2132,7 @@ async function getAppSettings() {
             }
 
             _settingsCache = settings;
-            _settingsExpire = Date.now() + 300000; // Cache valid for 5 minutes instead of 30s
+            _settingsExpire = Date.now() + 30000; // Cache valid for 30 seconds for better responsiveness
             return settings;
         } finally {
             _settingsPromise = null;
@@ -2157,6 +2157,7 @@ async function updateAppSettings(settings) {
         _settingsCache = null;
         _settingsExpire = 0;
         _settingsPromise = null;
+        console.log("♻️ [CACHE] Settings cache invalidated after update");
     }
     if (error) {
         console.error('❌ Error updating settings:', error.message, '— Trying partial save...');
@@ -2185,6 +2186,8 @@ async function updateAppSettings(settings) {
         console.warn('⚠️ Partial settings save done. Some columns may need SQL migration.');
     }
     _settingsCache = null; // Invalidate cache
+    _settingsExpire = 0;
+    _settingsPromise = null;
 }
 
 // --- Products ---
