@@ -307,7 +307,7 @@ function setupOrderSystem(bot) {
             nSachets: (unitValue > 1) ? packsSelected : null
         });
 
-        if (product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
+        if (unitValue === 1 && product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
             const nSachets = Math.round(qty / unitValue) || 1;
             return askUnitSelection(ctx, product, nSachets);
         }
