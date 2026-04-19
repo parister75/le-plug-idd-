@@ -197,19 +197,23 @@ function setupOrderSystem(bot) {
             (product.description ? `\n<i>${product.description}</i>\n` : "") +
             `\n💎 ` + t(user, 'label_choose_qty', '<b>Choisissez votre quantité :</b>');
 
-        const unitValue = parseInt(product.unit_value) || 1;
-        const qtyOptions = [1, 2, 3, 4, 5, 10].map(q => q * unitValue);
+        const multiplier = parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1;
+        const multipliers = [1, 2, 3, 4, 5, 10];
         const qtyRows = [];
         const unit = product.unit || '';
         const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
 
-        for (let i = 0; i < qtyOptions.length; i += 2) {
-            const label1 = `${qtyOptions[i]}${unitDisplay}`;
-            const row = [Markup.button.callback(label1, `qty_${productId}_${qtyOptions[i]}`)];
+        for (let i = 0; i < multipliers.length; i += 2) {
+            const m1 = multipliers[i];
+            const q1 = m1 * multiplier;
+            const label1 = multiplier > 1 ? `${m1} sachet${m1 > 1 ? 's' : ''} (${q1}${unitDisplay})` : `${q1}${unitDisplay}`;
+            const row = [Markup.button.callback(label1, `qty_${productId}_${q1}`)];
             
-            if (i + 1 < qtyOptions.length) {
-                const label2 = `${qtyOptions[i+1]}${unitDisplay}`;
-                row.push(Markup.button.callback(label2, `qty_${productId}_${qtyOptions[i+1]}`));
+            if (i + 1 < multipliers.length) {
+                const m2 = multipliers[i+1];
+                const q2 = m2 * multiplier;
+                const label2 = multiplier > 1 ? `${m2} sachet${m2 > 1 ? 's' : ''} (${q2}${unitDisplay})` : `${q2}${unitDisplay}`;
+                row.push(Markup.button.callback(label2, `qty_${productId}_${q2}`));
             }
             qtyRows.push(row);
         }
@@ -314,11 +318,17 @@ function setupOrderSystem(bot) {
         if (unitAmount) pending.chosen_unit_amount = unitAmount;
 
         const user = ctx.state?.user || await getUser(userId);
-        const unitValue = parseInt(product.unit_value) || 1;
+        const multiplier = parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1;
         const unit = product.unit || '';
         const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
         
-        const qtyLabel = unitValue > 1 ? `${qty}${unitDisplay}` : `${qty}x`;
+        let qtyLabel;
+        if (multiplier > 1) {
+            const nSachets = qty / multiplier;
+            qtyLabel = `${nSachets} sachet${nSachets > 1 ? 's' : ''} (${qty}${unitDisplay})`;
+        } else {
+            qtyLabel = `${qty}${unitDisplay || 'x'}`;
+        }
 
         const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty} {name}</b>', { qty: qtyLabel, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + '\n' +
             t(user, 'label_price_total', '💰 Prix :') + ` <b>${totalPrice}€</b>\n\n` +
