@@ -304,7 +304,8 @@ function setupOrderSystem(bot) {
             productName: product.name + bundleText,
             is_bundle: product.is_bundle,
             supplier_id: product.supplier_id, // IMPORTANT pour la notification fournisseur
-            nSachets: (unitValue > 1) ? packsSelected : null
+            nSachets: (unitValue > 1) ? packsSelected : null,
+            productUnit: product.unit || 'g'
         });
 
         if (unitValue === 1 && product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
@@ -416,7 +417,8 @@ function setupOrderSystem(bot) {
         cart.forEach((item, idx) => {
             const price = parseFloat(item.totalPrice);
             total += price;
-            const qtyLabel = item.nSachets ? `(x${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''})` : `(x${item.qty})`;
+            const unit = item.productUnit || 'g';
+            const qtyLabel = item.nSachets ? `(x${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''} - ${item.qty}${unit})` : `(x${item.qty}${unit})`;
             summary += `${idx + 1}. ${item.productName} <b>${qtyLabel}</b>${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${price.toFixed(2)}€</b>\n`;
             // Bouton de suppression individuelle
             buttons.push([Markup.button.callback(`❌ ${t(user, 'btn_back', 'Retirer')} ${item.productName}`, `remove_item_${idx}`)]);
@@ -493,7 +495,11 @@ function setupOrderSystem(bot) {
         const user = ctx.state?.user || await getUser(userId);
         const settings = ctx.state?.settings || await getAppSettings();
         const cart = userCarts.get(userId) || [];
-        const itemsText = cart.map(item => `• ${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`).join('\n');
+        const itemsText = cart.map(item => {
+            const unit = item.productUnit || 'g';
+            const qtyLabel = item.nSachets ? `${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''} (${item.qty}${unit})` : `${item.qty}${unit}`;
+            return `• ${item.productName} (x${qtyLabel})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`;
+        }).join('\n');
 
         // On persiste l'état d'attente d'adresse dans le Map global
         awaitingAddressDetails.set(userId, { step: 1, total: totalPrice });
