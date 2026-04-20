@@ -461,7 +461,7 @@ async function getMainMenuKeyboard(ctx, settings, user, isFournisseur = false, i
     const buttons = [];
 
     // Ligne 1 : Commander (Gros bouton principal)
-    buttons.push([Markup.button.callback(`${settings.ui_icon_catalog || '👟'} ${t(user, 'btn_catalog', settings.label_catalog || 'Passer une commande')}`, 'view_catalog')]);
+    buttons.push([Markup.button.callback(`${settings.ui_icon_catalog || '👟'} ${t(user, 'btn_catalog', settings.label_catalog || 'Voir le Menu / Commander')}`, 'view_catalog')]);
     
     // Suivi commande (Uniquement si panier plein)
     const { userCarts } = require('./order_system');
@@ -472,8 +472,8 @@ async function getMainMenuKeyboard(ctx, settings, user, isFournisseur = false, i
 
     // Ligne 2 : Panier & Mes Commandes
     buttons.push([
-        Markup.button.callback(`${settings.ui_icon_cart || '🛒'} ${t(user, 'btn_cart', 'Panier')}`, 'view_cart'),
-        Markup.button.callback(`${settings.ui_icon_orders || '📦'} ${t(user, 'btn_orders', 'Commandes')}`, 'my_orders')
+        Markup.button.callback(`${settings.ui_icon_cart || '🛒'} ${t(user, 'btn_cart', 'Mon Panier (Mes produits)')}`, 'view_cart'),
+        Markup.button.callback(`${settings.ui_icon_orders || '📦'} ${t(user, 'btn_orders', 'Mes Commandes')}`, 'my_orders')
     ]);
 
     // Ligne 3 : Aide & Contact

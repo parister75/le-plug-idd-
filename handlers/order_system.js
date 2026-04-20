@@ -194,11 +194,9 @@ function setupOrderSystem(bot) {
         }
 
         const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);
-        let text = `🌟 <b>${esc(product.name)}</b> 🌟\n\n` +
-            t(user, 'label_unit_price', '💰 Prix Unitaire :') + ` <b>${product.price}€</b>\n` +
-            (promoText ? `${promoText}\n` : "") +
-            (product.description ? `\n<i>${product.description}</i>\n` : "") +
-            `\n💎 ` + t(user, 'label_choose_qty', '<b>Choisissez votre quantité :</b>');
+            `\n💎 <b>Combien de sachets voulez-vous ?</b>\n\n` +
+            `💡 <i>Cliquez sur le chiffre qui correspond au nombre de sachets que vous voulez.</i>\n` +
+            `<i>(Exemple : si vous cliquez sur <b>1</b>, vous recevrez 1 sachet de ${multiplier}${unitDisplay})</i>`;
 
         const rawVal = String(product.unit_value || '1');
         const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
@@ -341,15 +339,15 @@ function setupOrderSystem(bot) {
             qtyLabel = `${qty}${unitDisplay || 'x'}`;
         }
 
-        const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty} {name}</b>', { qty: qtyLabel, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + 
+        const text = t(user, 'msg_selection', '🛒 <b>Vous avez choisi : {qty} {name}</b>', { qty: qtyLabel, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + 
             sachetInfo + '\n' +
-            t(user, 'label_price_total', '💰 Prix :') + ` <b>${totalPrice}€</b>\n\n` +
-            t(user, 'msg_what_to_do', 'Que voulez-vous faire ?');
+            t(user, 'label_price_total', '💰 Prix à payer :') + ` <b>${totalPrice}€</b>\n\n` +
+            t(user, 'msg_what_to_do', '<b>C\'est presque fini ! Votre produit est mis de côté.</b>\n\nQue voulez-vous faire maintenant ?');
 
         const buttons = [
             [
-                Markup.button.callback(t(user, 'btn_add_to_cart', '🛒 Ajouter au panier'), 'add_to_cart'),
-                Markup.button.callback(t(user, 'btn_checkout_now', '💳 Régler maintenant'), 'checkout_now')
+                Markup.button.callback(t(user, 'btn_add_to_cart', '🛒 Mettre dans mon panier'), 'add_to_cart'),
+                Markup.button.callback(t(user, 'btn_checkout_now', '💳 Payer maintenant'), 'checkout_now')
             ],
             [
                 Markup.button.callback(t(user, 'btn_review', '⭐️ Avis / Comment'), 'leave_review'),
@@ -382,10 +380,10 @@ function setupOrderSystem(bot) {
         pendingOrders.delete(userId);
 
         const products = await getProducts();
-        const text = t(user, 'msg_product_added', '✅ Produit ajouté !') + '\n\n' + t(user, 'msg_cart_count', 'Votre panier contient <b>{count}</b> article(s).', { count: cart.length });
+        const text = t(user, 'msg_product_added', '✅ C\'est noté ! Produit ajouté au panier.') + '\n\n' + t(user, 'msg_cart_count', 'Votre panier contient <b>{count}</b> article(s).', { count: cart.length });
         const buttons = [
-            [Markup.button.callback(t(user, 'btn_continue', '🛍️ Continuer'), 'view_catalog'), Markup.button.callback(t(user, 'btn_cart_view', '💳 Panier'), 'view_cart')],
-            [Markup.button.callback(t(user, 'btn_clear', settings.btn_clear_cart || '❌ Vider le panier'), 'clear_cart')]
+            [Markup.button.callback(t(user, 'btn_continue', '🛍️ Acheter autre chose'), 'view_catalog'), Markup.button.callback(t(user, 'btn_cart_view', '💳 Payer ma commande'), 'view_cart')],
+            [Markup.button.callback(t(user, 'btn_clear', settings.btn_clear_cart || '❌ Tout enlever'), 'clear_cart')]
         ];
         await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
     });
