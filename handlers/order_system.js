@@ -193,17 +193,19 @@ function setupOrderSystem(bot) {
             promoText += `\n📊 <b>GRILLE DE TARIFS :</b>\n` + tiers.join('  |  ') + `\n`;
         }
 
+        const rawVal = String(product.unit_value || '1');
+        const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
+        const unit = product.unit || '';
+        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
+
         const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);
+        let text = `🌟 <b>${esc(product.name)}</b> 🌟\n\n` +
+            t(user, 'label_unit_price', '💰 Prix Unitaire :') + ` <b>${product.price}€</b>\n` +
+            (promoText ? `${promoText}\n` : "") +
+            (product.description ? `\n<i>${product.description}</i>\n` : "") +
             `\n💎 <b>Combien de sachets voulez-vous ?</b>\n\n` +
             `💡 <i>Cliquez sur le chiffre qui correspond au nombre de sachets que vous voulez.</i>\n` +
             `<i>(Exemple : si vous cliquez sur <b>1</b>, vous recevrez 1 sachet de ${multiplier}${unitDisplay})</i>`;
-
-        const rawVal = String(product.unit_value || '1');
-        const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
-        const multipliers = [1, 2, 3, 4, 5, 10];
-        const qtyRows = [];
-        const unit = product.unit || '';
-        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
 
         for (let i = 0; i < multipliers.length; i += 2) {
             const m1 = multipliers[i];
