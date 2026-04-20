@@ -207,6 +207,9 @@ function setupOrderSystem(bot) {
             `💡 <i>Cliquez sur le chiffre qui correspond au nombre de sachets que vous voulez.</i>\n` +
             `<i>(Exemple : si vous cliquez sur <b>1</b>, vous recevrez 1 sachet de ${multiplier}${unitDisplay})</i>`;
 
+        const multipliers = [1, 2, 3, 4, 5, 10];
+        const qtyRows = [];
+
         for (let i = 0; i < multipliers.length; i += 2) {
             const m1 = multipliers[i];
             const q1 = m1 * multiplier;
