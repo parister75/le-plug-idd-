@@ -176,19 +176,19 @@ function setupOrderSystem(bot) {
             promoText = `\n🔥 <b>PROMO : ${product.promo}</b>\n`;
         }
 
-        // NOUVEAU: Affichage des prix dégressifs
+        // NOUVEAU: Affichage des prix dégressifs (GRILLE DE TARIFS)
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
-            promoText += `\n📉 <b>PRIX DÉGRESSIFS :</b>\n`;
             const multiplier = parseInt(product.unit_value) || 1;
             const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? (product.unit) : 'unités';
             
-            product.discounts_config.forEach(d => {
+            // On construit une ligne unique avec séparateurs | pour une lecture éclair
+            const tiers = product.discounts_config.map(d => {
                 const discountTotal = parseFloat(d.total || d.total_price || 0);
-                const displayQty = d.qty; // La config stocke le nombre total d'unités demandées
-                // Si conditionnement 5g, 1 unité = 5g. Donc d.qty=2 -> 10g.
-                const weightText = multiplier > 1 ? ` (${d.qty * multiplier}${unitSuffix})` : '';
-                promoText += `• ${d.qty} ${multiplier > 1 ? 'pack(s)' : unitSuffix}${weightText} : <b>${discountTotal.toFixed(2)}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
+                const weight = d.qty * multiplier;
+                return `<b>${weight}${unitSuffix}: ${discountTotal.toFixed(2)}€</b>`;
             });
+            
+            promoText += `\n📊 <b>TARIFS DÉGRESSIFS :</b>\n` + tiers.join(' | ') + `\n`;
         }
 
         const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);

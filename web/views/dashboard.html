@@ -302,6 +302,27 @@
             margin-bottom: 15px;
         }
 
+        /* --- PRODUCT TYPE SELECTOR --- */
+        .btn-prod-type {
+            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-muted);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+        }
+        .btn-prod-type:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+        .btn-prod-type.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+        .btn-prod-type.active#type-deg { background: #00bfff; box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3); }
+        .btn-prod-type.active#type-bun { background: orange; box-shadow: 0 4px 12px rgba(255, 165, 0, 0.3); }
+
         .carousel-title {
             font-size: 11px;
             font-weight: 800;
@@ -2662,6 +2683,13 @@
                     <input type="hidden" id="edit_prod_id">
                     <input type="hidden" id="edit_prod_is_mp">
 
+                    <!-- 💎 SÉLECTEUR DE TYPE DE PRODUIT (UX) -->
+                    <div style="margin-bottom:20px; display:flex; gap:8px; background:rgba(255,255,255,0.03); padding:4px; border-radius:12px; border:1px solid var(--border);">
+                        <button type="button" class="btn btn-sm btn-prod-type active" id="type-std" onclick="setProductType('standard')" style="flex:1; font-size:12px; height:36px; gap:6px;">📦 Standard</button>
+                        <button type="button" class="btn btn-sm btn-prod-type" id="type-deg" onclick="setProductType('degressif')" style="flex:1; font-size:12px; height:36px; gap:6px;">📉 Dégressif</button>
+                        <button type="button" class="btn btn-sm btn-prod-type" id="type-bun" onclick="setProductType('bundle')" style="flex:1; font-size:12px; height:36px; gap:6px;">🎁 Cadeau</button>
+                    </div>
+
                     <!-- ═══ ESSENTIEL : Nom + Prix + Photo ═══ -->
                         <div style="flex:1;">
                             <label style="font-size:12px; font-weight:600;">Nom *</label>
@@ -2792,8 +2820,18 @@
                                     <span>Qté</span><span>Prix total (€)</span>
                                 </div>
                                 <div id="discounts_list" style="display:flex; flex-direction:column; gap:4px;"></div>
+                                
+                                <!-- Quick Paste Helper -->
+                                <div style="margin-top:10px; border-top:1px solid rgba(0,191,255,0.1); padding-top:10px;">
+                                    <label style="font-size:9px; opacity:0.6; display:block; margin-bottom:4px;">📋 SAISIE RAPIDE (ex: 1:40, 2:70, 5:110)</label>
+                                    <div style="display:flex; gap:6px;">
+                                        <input type="text" id="quick_paste_tiers" placeholder="1:40, 2:70, 5:110, 10:190" style="margin:0; font-size:11px; height:32px;">
+                                        <button type="button" class="btn btn-sm btn-accent" onclick="parseQuickTiers()" style="height:32px; padding:0 12px; font-size:11px;">Appliquer</button>
+                                    </div>
+                                </div>
+
                                 <button class="btn btn-sm btn-outline" onclick="addDiscountRow()"
-                                    style="margin-top:6px; width:100%; font-size:11px;">+ Ajouter un palier</button>
+                                    style="margin-top:6px; width:100%; font-size:11px;">+ Ajouter manuellement un palier</button>
                             </div>
                         </div>
                     </div>
@@ -6221,8 +6259,99 @@
 
             toggleBundleArea();
             toggleDiscountsArea();
+
+            // Detect product type for UX
+            if (p.has_discounts) setProductType('degressif', false);
+            else if (p.is_bundle) setProductType('bundle', false);
+            else setProductType('standard', false);
+
             renderPreview('prod');
             switchProductTab('add');
+        }
+
+        function setProductType(type, scroll = true) {
+            // Update buttons
+            document.querySelectorAll('.btn-prod-type').forEach(b => b.classList.remove('active'));
+            if(type === 'standard') document.getElementById('type-std').classList.add('active');
+            if(type === 'degressif') document.getElementById('type-deg').classList.add('active');
+            if(type === 'bundle') document.getElementById('type-bun').classList.add('active');
+
+            // Open advanced section
+            const advSection = document.getElementById('prod_advanced');
+            if (advSection) {
+                advSection.style.display = 'block';
+                const arrow = advSection.parentElement.querySelector('.adv-arrow');
+                if (arrow) arrow.textContent = '▾';
+            }
+
+            // Toggle Toggles
+            if (type === 'standard') {
+                document.getElementById('prod_is_bundle').checked = false;
+                document.getElementById('prod_has_discounts').checked = false;
+            } else if (type === 'bundle') {
+                document.getElementById('prod_is_bundle').checked = true;
+                document.getElementById('prod_has_discounts').checked = false;
+            } else if (type === 'degressif') {
+                document.getElementById('prod_is_bundle').checked = false;
+                document.getElementById('prod_has_discounts').checked = true;
+            }
+
+            toggleBundleArea();
+            toggleDiscountsArea();
+
+            if (scroll) {
+                const targetId = type === 'bundle' ? 'bundle_config_area' : (type === 'degressif' ? 'discounts_config_area' : 'prod_advanced');
+                document.getElementById(targetId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Tiny flash effect to highlight
+                const el = document.getElementById(targetId);
+                el.style.transition = '0.3s';
+                el.style.background = 'rgba(255,255,255,0.1)';
+                setTimeout(() => el.style.background = '', 500);
+            }
+        }
+
+        function parseQuickTiers() {
+            const val = document.getElementById('quick_paste_tiers').value.trim();
+            if(!val) return showToast('Veuillez entrer des paliers (ex: 1:40, 2:70)', 'info');
+
+            // Format supportés: "1:40, 2:70" ou "1=40 | 2=70" ou "1-40 2-70"
+            // Supporte les entiers et décimales
+            const regex = /(\d+(?:\.\d+)?)[\s:=\-g\/]+(\d+(?:\.\d+)?)/g;
+            let match;
+            const tiers = [];
+            while ((match = regex.exec(val)) !== null) {
+                tiers.push({ qty: parseFloat(match[1]), price: parseFloat(match[2]) });
+            }
+
+            if(tiers.length === 0) return showToast('Aucun palier détecté. Format correct: "1:40, 2:70"', 'error');
+
+            // Trier par quantité
+            tiers.sort((a,b) => a.qty - b.qty);
+
+            // LOGIQUE CONDITIONNEMENT : Le premier palier devient la base
+            const baseTier = tiers[0];
+            document.getElementById('prod_unit_value').value = baseTier.qty;
+            document.getElementById('prod_price').value = baseTier.price;
+            
+            // On active les paliers automatiquement
+            setProductType('degressif', false);
+
+            const list = document.getElementById('discounts_list');
+            list.innerHTML = '';
+            
+            // Les paliers suivants sont relatifs à la base
+            if (tiers.length > 1) {
+                tiers.slice(1).forEach(t => {
+                    // Si base=5g et tiers=10g, alors qté_palier = 2
+                    const relQty = t.qty / baseTier.qty;
+                    addDiscountRow(relQty, t.price);
+                });
+                showToast(`✅ Base ${baseTier.qty}g / ${baseTier.price}€ + ${tiers.length - 1} paliers configurés !`, 'success');
+            } else {
+                showToast(`✅ Base ${baseTier.qty}g / ${baseTier.price}€ configurée !`, 'success');
+            }
+
+            document.getElementById('quick_paste_tiers').value = '';
         }
 
         function toggleBundleArea() {
@@ -6282,6 +6411,8 @@
             }
             toggleBundleArea();
             toggleDiscountsArea();
+            setProductType('standard', false);
+            document.getElementById('quick_paste_tiers').value = '';
             renderPreview('prod');
         }
 
