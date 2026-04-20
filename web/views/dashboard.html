@@ -2716,6 +2716,25 @@
                         </div>
                     </div>
 
+                    <!-- Unité + Valeur (Moved for UX) -->
+                    <div style="display:flex; gap:10px; margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:10px;">
+                        <div style="flex:2;">
+                            <label style="font-size:11px; font-weight:600;">Unité de vente</label>
+                            <select id="prod_unit" style="margin-bottom:0; font-size:12px; height:36px;">
+                                <option value="">Pièce (défaut)</option>
+                                <option value="g">Grammes (g)</option>
+                                <option value="kg">Kilos (kg)</option>
+                                <option value="L">Litres (L)</option>
+                                <option value="cL">Centilitres (cL)</option>
+                                <option value="lot">Lot</option>
+                            </select>
+                        </div>
+                        <div style="flex:3;">
+                            <label style="font-size:11px; font-weight:600;">Valeur (Conditionnement - ex: 5 pour 5g)</label>
+                            <input id="prod_unit_value" placeholder="10" style="margin-bottom:0; font-size:12px; height:36px;">
+                        </div>
+                    </div>
+
                     <div style="display:flex; gap:12px; margin-bottom:14px;">
                         <div style="flex:1;">
                             <label style="font-size:12px; font-weight:600;">Prix (€) *</label>
@@ -2749,25 +2768,7 @@
                         </div>
                         <div id="prod_advanced" style="display:none; padding-top:10px;">
                             <!-- Unité + Valeur -->
-                            <div style="display:flex; gap:10px; margin-bottom:12px;">
-                                <div style="flex:2;">
-                                    <label style="font-size:11px;">Unité de vente</label>
-                                    <select id="prod_unit" style="margin-bottom:0; font-size:12px;">
-                                        <option value="">Pièce (défaut)</option>
-                                        <option value="g">Grammes (g)</option>
-                                        <option value="kg">Kilos (kg)</option>
-                                        <option value="L">Litres (L)</option>
-                                        <option value="cL">Centilitres (cL)</option>
-                                        <option value="lot">Lot</option>
-                                    </select>
-                                </div>
-                                <div style="flex:1;">
-                                    <label style="font-size:11px;">Valeur</label>
-                                    <input id="prod_unit_value" placeholder="10" style="margin-bottom:0; font-size:12px;">
-                                </div>
-                            </div>
-
-                            <!-- Promo -->
+                            <!-- Promo (Unit/Value moved up) -->
                             <div style="margin-bottom:14px;">
                                 <label style="font-size:11px;">Promo</label>
                                 <input type="text" id="prod_promo" placeholder="ex: -10% ou PROMO 15€" style="margin-bottom:0; font-size:12px;">
