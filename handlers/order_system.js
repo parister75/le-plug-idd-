@@ -344,6 +344,8 @@ function setupOrderSystem(bot) {
             t(user, 'label_price_total', '💰 Prix à payer :') + ` <b>${totalPrice}€</b>\n\n` +
             t(user, 'msg_what_to_do', '<b>C\'est presque fini ! Votre produit est mis de côté.</b>\n\nQue voulez-vous faire maintenant ?');
 
+        const buttons = [
+            [
                 Markup.button.callback(t(user, 'btn_add_to_cart', '🛒 Mettre dans mon panier'), 'add_to_cart'),
                 Markup.button.callback(t(user, 'btn_checkout_now', '💳 Paiement à la livraison'), 'checkout_now')
             ],
