@@ -344,10 +344,8 @@ function setupOrderSystem(bot) {
             t(user, 'label_price_total', '💰 Prix à payer :') + ` <b>${totalPrice}€</b>\n\n` +
             t(user, 'msg_what_to_do', '<b>C\'est presque fini ! Votre produit est mis de côté.</b>\n\nQue voulez-vous faire maintenant ?');
 
-        const buttons = [
-            [
                 Markup.button.callback(t(user, 'btn_add_to_cart', '🛒 Mettre dans mon panier'), 'add_to_cart'),
-                Markup.button.callback(t(user, 'btn_checkout_now', '💳 Payer maintenant'), 'checkout_now')
+                Markup.button.callback(t(user, 'btn_checkout_now', '💳 Paiement à la livraison'), 'checkout_now')
             ],
             [
                 Markup.button.callback(t(user, 'btn_review', '⭐️ Avis / Comment'), 'leave_review'),
@@ -1082,11 +1080,15 @@ function setupOrderSystem(bot) {
                 { id: 'CASH', label: 'Espèces', icon: '💵' }
             ];
         }
+        
+        const hasAlternativePayment = pModes.some(m => m.id !== 'CASH');
+        const adminContact = settings.private_contact_url || 'https://t.me/admin';
 
         // Si 1 seul mode, bouton "Confirmer" direct
         if (pModes.length === 1) {
             const pm = pModes[0];
-            keyboard.push([Markup.button.callback(t(user, 'btn_confirm_order_pm', `✅ Confirmer la commande ({label})`, { label: pm.label }), `create_order_${pm.id}_${discount > 0 ? 'discount' : 'normal'}`)]);
+            const label = pm.id === 'CASH' ? 'Payer à la livraison' : pm.label;
+            keyboard.push([Markup.button.callback(t(user, 'btn_confirm_order_pm', `✅ Confirmer ({label})`, { label: label }), `create_order_${pm.id}_${discount > 0 ? 'discount' : 'normal'}`)]);
         } else {
             // Grouper les modes de paiement 2 par 2
             for (let i = 0; i < pModes.length; i += 2) {
@@ -1098,6 +1100,10 @@ function setupOrderSystem(bot) {
             }
         }
 
+        if (hasAlternativePayment) {
+            keyboard.push([Markup.button.url('💬 Parler à l\'admin (Paiement Crypto/Virement)', adminContact)]);
+        }
+ 
         keyboard.push([Markup.button.callback('◀️ Modifier', 'back_to_scheduling'), Markup.button.callback(settings.btn_cancel_alt || '❌ Annuler', 'view_catalog')]);
 
         await safeEdit(ctx, text, {
