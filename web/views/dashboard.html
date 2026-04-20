@@ -2821,17 +2821,26 @@
                                 </div>
                                 <div id="discounts_list" style="display:flex; flex-direction:column; gap:4px;"></div>
                                 
-                                <!-- Quick Paste Helper -->
-                                <div style="margin-top:10px; border-top:1px solid rgba(0,191,255,0.1); padding-top:10px;">
-                                    <label style="font-size:9px; opacity:0.6; display:block; margin-bottom:4px;">📋 SAISIE RAPIDE (ex: 1:40, 2:70, 5:110)</label>
-                                    <div style="display:flex; gap:6px;">
-                                        <input type="text" id="quick_paste_tiers" placeholder="1:40, 2:70, 5:110, 10:190" style="margin:0; font-size:11px; height:32px;">
-                                        <button type="button" class="btn btn-sm btn-accent" onclick="parseQuickTiers()" style="height:32px; padding:0 12px; font-size:11px;">Appliquer</button>
+                                <!-- ✨ MAGIC PARSER V2 (PREMIUM) -->
+                                <div style="margin-top:15px; background:rgba(0,191,255,0.05); padding:15px; border-radius:15px; border:1px solid rgba(0,191,255,0.15);">
+                                    <label style="font-size:10px; font-weight:800; color:#00bfff; display:block; margin-bottom:8px; letter-spacing:1px; text-transform:uppercase;">✨ Saisie Magique (IA-Style)</label>
+                                    <textarea id="quick_paste_tiers" placeholder="Collez ici : '1:10€, 3:25€' ou '2 achetés = 1 offert'..." 
+                                        style="margin:0; font-size:12px; height:60px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:10px; resize:none; padding:10px;"
+                                        oninput="previewMagicParse()"></textarea>
+                                    
+                                    <!-- Preview Card -->
+                                    <div id="magic_preview_card" style="display:none; margin-top:10px; background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px dashed rgba(255,255,255,0.1);">
+                                        <div id="magic_preview_content" style="font-size:11px; color:#fff;"></div>
                                     </div>
+
+                                    <button type="button" class="btn btn-sm btn-accent" onclick="applyMagicParse()" 
+                                        style="margin-top:10px; width:100%; height:38px; border-radius:10px; font-weight:700; box-shadow:0 4px 15px rgba(0,191,255,0.2);">
+                                        🚀 Appliquer la configuration
+                                    </button>
                                 </div>
 
                                 <button class="btn btn-sm btn-outline" onclick="addDiscountRow()"
-                                    style="margin-top:6px; width:100%; font-size:11px;">+ Ajouter manuellement un palier</button>
+                                    style="margin-top:10px; width:100%; font-size:11px; opacity:0.6;">+ Ajouter manuellement un palier</button>
                             </div>
                         </div>
                     </div>
@@ -6310,48 +6319,93 @@
             }
         }
 
-        function parseQuickTiers() {
+        function previewMagicParse() {
             const val = document.getElementById('quick_paste_tiers').value.trim();
-            if(!val) return showToast('Veuillez entrer des paliers (ex: 1:40, 2:70)', 'info');
+            const preview = document.getElementById('magic_preview_card');
+            const content = document.getElementById('magic_preview_content');
+            
+            if (!val) {
+                preview.style.display = 'none';
+                return;
+            }
 
-            // Format supportés: "1:40, 2:70" ou "1=40 | 2=70" ou "1-40 2-70"
-            // Supporte les entiers et décimales
-            const regex = /(\d+(?:\.\d+)?)[\s:=\-g\/]+(\d+(?:\.\d+)?)/g;
+            const data = magicParseCore(val);
+            preview.style.display = 'block';
+
+            if (data.type === 'bundle') {
+                content.innerHTML = `🎁 <b>DÉTECTÉ : OFFRE CADEAU</b><br>Si le client achète <b>${data.config.trigger}</b>, il reçoit <b>${data.config.offered}</b> offert.`;
+                preview.style.borderColor = 'orange';
+            } else if (data.type === 'degressif') {
+                const tiersTxt = data.tiers.map(t => `${t.qty}g:${t.price}€`).join(' | ');
+                content.innerHTML = `📉 <b>DÉTECTÉ : PRIX DÉGRESSIFS</b><br>Base: <b>${data.base.qty}g / ${data.base.price}€</b><br>Paliers : ${tiersTxt}`;
+                preview.style.borderColor = '#00bfff';
+            } else {
+                content.innerHTML = `⚠️ <b>AUCUNE STRUCTURE DÉTECTÉE</b><br>Format : '1:10€, 3:25€' ou '2 achetés = 1 offert'`;
+                preview.style.borderColor = 'rgba(255,255,255,0.1)';
+            }
+        }
+
+        function magicParseCore(text) {
+            const val = text.toLowerCase();
+            
+            // 1. Detection Bundle (Acheté / Offert / Gratuit)
+            if (val.includes('offert') || val.includes('gratuit') || val.includes('acheté') || val.includes('cadeau')) {
+                const nums = val.match(/\d+/g);
+                if (nums && nums.length >= 2) {
+                    return { type: 'bundle', config: { trigger: parseInt(nums[0]), offered: parseInt(nums[1]) } };
+                }
+            }
+
+            // 2. Detection Dégressif
+            const regex = /(\d+(?:\.\d+)?)[\s:=\-g\/€]+(\d+(?:\.\d+)?)/g;
             let match;
             const tiers = [];
             while ((match = regex.exec(val)) !== null) {
-                tiers.push({ qty: parseFloat(match[1]), price: parseFloat(match[2]) });
+                // On vérifie si ce n'est pas un texte explicatif de bundle
+                if (!val.includes('acheté') && !val.includes('offert')) {
+                    tiers.push({ qty: parseFloat(match[1]), price: parseFloat(match[2]) });
+                }
             }
 
-            if(tiers.length === 0) return showToast('Aucun palier détecté. Format correct: "1:40, 2:70"', 'error');
+            if (tiers.length > 0) {
+                tiers.sort((a,b) => a.qty - b.qty);
+                const base = tiers[0];
+                return { type: 'degressif', base: base, tiers: tiers };
+            }
 
-            // Trier par quantité
-            tiers.sort((a,b) => a.qty - b.qty);
+            return { type: 'none' };
+        }
 
-            // LOGIQUE CONDITIONNEMENT : Le premier palier devient la base
-            const baseTier = tiers[0];
-            document.getElementById('prod_unit_value').value = baseTier.qty;
-            document.getElementById('prod_price').value = baseTier.price;
-            
-            // On active les paliers automatiquement
-            setProductType('degressif', false);
+        function applyMagicParse() {
+            const val = document.getElementById('quick_paste_tiers').value.trim();
+            if(!val) return;
 
-            const list = document.getElementById('discounts_list');
-            list.innerHTML = '';
-            
-            // Les paliers suivants sont relatifs à la base
-            if (tiers.length > 1) {
-                tiers.slice(1).forEach(t => {
-                    // Si base=5g et tiers=10g, alors qté_palier = 2
-                    const relQty = t.qty / baseTier.qty;
-                    addDiscountRow(relQty, t.price);
-                });
-                showToast(`✅ Base ${baseTier.qty}g / ${baseTier.price}€ + ${tiers.length - 1} paliers configurés !`, 'success');
-            } else {
-                showToast(`✅ Base ${baseTier.qty}g / ${baseTier.price}€ configurée !`, 'success');
+            const data = magicParseCore(val);
+            if (data.type === 'none') return showToast('Format non reconnu', 'info');
+
+            if (data.type === 'bundle') {
+                setProductType('bundle');
+                document.getElementById('bundle_trigger_qty').value = data.config.trigger;
+                document.getElementById('bundle_offered_qty').value = data.config.offered;
+                showToast(`🎁 Offre ${data.config.trigger}+${data.config.offered} configurée !`, 'success');
+            } else if (data.type === 'degressif') {
+                setProductType('degressif');
+                document.getElementById('prod_unit_value').value = data.base.qty;
+                document.getElementById('prod_price').value = data.base.price;
+                
+                const list = document.getElementById('discounts_list');
+                list.innerHTML = '';
+                if (data.tiers.length > 1) {
+                    data.tiers.slice(1).forEach(t => {
+                        const relQty = t.qty / data.base.qty;
+                        addDiscountRow(relQty, t.price);
+                    });
+                }
+                showToast(`📉 Base ${data.base.qty}g à ${data.base.price}€ configurée !`, 'success');
             }
 
             document.getElementById('quick_paste_tiers').value = '';
+            document.getElementById('magic_preview_card').style.display = 'none';
         }
 
         function toggleBundleArea() {

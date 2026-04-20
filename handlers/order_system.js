@@ -171,24 +171,26 @@ function setupOrderSystem(bot) {
 
         let promoText = "";
         if (product.is_bundle) {
-            promoText = `\n🎁 <b>OFFRE BUNDLE : 1 ACHETÉ = 1 OFFERT !</b>\n<i>(Le produit offert est inclus automatiquement dans votre commande)</i>\n`;
+            const config = product.bundle_config || { trigger_qty: 1, offered_qty: 1 };
+            const trigger = config.trigger_qty || 1;
+            const offered = config.offered_qty || 1;
+            promoText = `\n🎁 <b>OFFRE : ${trigger} ACHETÉS = ${offered} OFFERT(S) !</b>\n<i>(Inclus automatiquement dans votre commande)</i>\n`;
         } else if (product.promo) {
             promoText = `\n🔥 <b>PROMO : ${product.promo}</b>\n`;
         }
 
-        // NOUVEAU: Affichage des prix dégressifs (GRILLE DE TARIFS)
+        // Affichage des tarifs dégressifs (GRILLE DE TARIFS PREMIUM)
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
             const multiplier = parseInt(product.unit_value) || 1;
             const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? (product.unit) : 'unités';
             
-            // On construit une ligne unique avec séparateurs | pour une lecture éclair
             const tiers = product.discounts_config.map(d => {
-                const discountTotal = parseFloat(d.total || d.total_price || 0);
+                const total = parseFloat(d.total || d.total_price || 0);
                 const weight = d.qty * multiplier;
-                return `<b>${weight}${unitSuffix}: ${discountTotal.toFixed(2)}€</b>`;
+                return `<code>${weight}${unitSuffix}:${total.toFixed(0)}€</code>`;
             });
             
-            promoText += `\n📊 <b>TARIFS DÉGRESSIFS :</b>\n` + tiers.join(' | ') + `\n`;
+            promoText += `\n📊 <b>GRILLE DE TARIFS :</b>\n` + tiers.join('  |  ') + `\n`;
         }
 
         const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);
