@@ -5,7 +5,7 @@ const { safeEdit, cleanupUserChat, clearActiveMediaGroup } = require('../service
 const { createPersistentMap } = require('../services/persistent_map');
 const { isAdmin } = require('./admin');
 const { notifyAdmins } = require('../services/notifications');
-const { clearAllAwaitingMaps } = require('./supplier_marketplace');
+// const { clearAllAwaitingMaps } = require('./supplier_marketplace');
 
 const pendingReferralInput = createPersistentMap('pendingReferral');
 
@@ -146,21 +146,7 @@ function setupStartHandler(bot) {
                     await notifyAdmins(bot, adminMsg, adminKeyboard).catch(() => {});
                 }
                 
-                const isWa = ctx.platform === 'whatsapp';
-                const restrictedText = `🛑 <b>ACCÈS RESTREINT</b>\n\n` +
-                    `Bonjour <b>${user.first_name}</b>,\n\n` +
-                    `Pour accéder au bot, vous devez d'abord envoyer un message à l'administrateur.\n` +
-                    `Une fois que l'admin aura validé votre accès, vous pourrez commander.\n\n` +
-                    (isWa ? `📝 <i>Une fois validé, écrivez <b>/start</b> pour actualiser le menu.</i>\n\n` +
-                            `👇 <b>Cliquez sur les liens ci-dessous :</b>\n` +
-                            (settings.private_contact_wa_url ? `• *WhatsApp Admin :* ${settings.private_contact_wa_url}\n` : '') +
-                            (settings.private_contact_url ? `• *Telegram Admin :* ${settings.private_contact_url}\n` : '') +
-                            (settings.channel_url ? `• *Notre Canal :* ${settings.channel_url}\n` : '') : 
-                            `👇 <b>Veuillez cliquer ci-dessous :</b>`);
-                
-                const b = [];
                 if (settings.private_contact_url) b.push([Markup.button.url('✉️ Telegram : Admin', settings.private_contact_url)]);
-                if (settings.private_contact_wa_url) b.push([Markup.button.url('✉️ WhatsApp : Admin', settings.private_contact_wa_url)]);
                 b.push([Markup.button.url('📢 S’abonner au canal', settings.channel_url || 'https://t.me/channel')]);
                 b.push([Markup.button.callback('🔄 Rafraîchir mon statut', 'start')]);
                 
@@ -338,12 +324,8 @@ function setupStartHandler(bot) {
         const supplier = await getSupplierByTelegramId(String(ctx.from.id));
         const isFournisseur = !!supplier;
         
-        const buttons = [];
         if (settings.private_contact_url) {
             buttons.push([Markup.button.url('📲 Telegram : Admin', settings.private_contact_url)]);
-        }
-        if (settings.private_contact_wa_url) {
-            buttons.push([Markup.button.url('📲 WhatsApp : Admin', settings.private_contact_wa_url)]);
         }
 
         // NOUVEAU : Affichage des liens personnalisés
@@ -363,7 +345,6 @@ function setupStartHandler(bot) {
         let text = `${settings.ui_icon_contact || '💬'} <b>${settings.label_contact || 'Contact Admin'}</b>\n\n` +
                    `Bonjour <b>${ctx.from.first_name}</b>, vous pouvez nous contacter en direct :\n\n` +
                    (settings.private_contact_url ? `🔹 <b>Telegram :</b> <a href="${settings.private_contact_url}">Cliquez ici</a>\n` : '') +
-                   (settings.private_contact_wa_url ? `🔸 <b>WhatsApp :</b> <a href="${settings.private_contact_wa_url}">Cliquez ici</a>\n` : '') +
                    customLinksText + (customLinksText ? '\n' : '') +
                    (isFournisseur ? `<i>Note : En tant que fournisseur, utilisez ces liens pour toute question logistique ou paiement.</i>\n\n` : '') +
                    `Cliquez sur l'un des boutons ci-dessous pour ouvrir une discussion.`;
@@ -427,8 +408,7 @@ function setupStartHandler(bot) {
  */
 async function showMainMenu(ctx) {
     const userId = `${ctx.platform}_${ctx.from.id}`;
-    // Nettoyer les états marketplace
-    clearAllAwaitingMaps(ctx.from.id);
+    // clearAllAwaitingMaps(ctx.from.id);
     const settings = await getAppSettings();
     // Use already-patched ctx.state.user if available (e.g. right after language change),
     // otherwise fetch fresh from DB.
@@ -515,11 +495,14 @@ async function getMainMenuKeyboard(ctx, settings, user, isFournisseur = false, i
     // Ligne 5 : Espace Livreur / Fournisseur
     const spaces = [];
     if (user?.is_livreur) spaces.push(Markup.button.callback(`${settings.ui_icon_livreur || '🚴'} Livreur`, 'livreur_menu'));
+    // Fournisseur / Marketplace removed as per request
+    /*
     if (settings.enable_marketplace !== false) {
         if (user?.is_supplier || user?.is_mp_admin || isFournisseur) {
             spaces.push(Markup.button.callback('🏪 Fourn.', 'supplier_menu'));
         }
     }
+    */
     if (spaces.length > 0) buttons.push(spaces);
 
     // Ligne 6 : Liens Personnalisés (Dynamique)

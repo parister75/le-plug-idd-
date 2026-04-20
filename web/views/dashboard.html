@@ -1991,7 +1991,6 @@
         .m-user-actions .m-btn-accent { background: linear-gradient(135deg, var(--accent), #ff4d8d); border: none; }
         .m-user-actions .m-btn-danger { color: #ff3b30; border-color: rgba(255,59,48,0.3); }
         .m-user-actions .m-btn-check { color: var(--accent); border-color: rgba(255,0,80,0.3); }
-        .m-user-actions .m-btn-supplier { background: linear-gradient(135deg,#6a5acd,#9370db); border: none; }
         .m-user-actions .m-btn-approve { background: linear-gradient(135deg, #00b400, #008000); border: none; }
 
         /* ===== MOBILE LOGISTICS HEADER ===== */
@@ -2341,10 +2340,10 @@
 
                     <div style="display:flex; gap:10px; align-items:center; flex: 1; min-width: 200px;">
                         <select id="insights-platform-filter" onchange="updatePlatformStats(); renderMainChart(window.currentTimeframe || 'hour')" 
-                            style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; padding:0 15px; color:white; font-size:14px; font-weight:600; cursor:pointer; flex: 1; height: 42px; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 12px auto;">
+                            style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; padding:0 15px; color:white; font-size:14px; font-weight:600; cursor:pointer; flex: 1; height: 42px; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 12px auto; display: none;">
                             <option value="all" style="background:#222; color:#fff;">📱 Toutes Plateformes</option>
                             <option value="telegram" style="background:#222; color:#fff;">🔹 Telegram Only</option>
-                            <option value="whatsapp" style="background:#222; color:#fff;">🔸 WhatsApp Only</option>
+                            <option value="whatsapp" style="background:#222; color:#fff;" disabled>🔸 WhatsApp Only</option>
                         </select>
                         <button class="btn btn-accent" style="height: 42px; border-radius:12px; padding: 0 20px;" onclick="exportAnalyticsCSV()">📥 CSV</button>
                     </div>
@@ -2565,7 +2564,7 @@
                     <span id="usersTgCounter"
                         style="background:rgba(0,136,204,0.1); color:#0088cc; padding:4px 12px; border-radius:10px; font-size:13px; font-weight:700; border:1px solid rgba(0,136,204,0.3);">TG: -</span>
                     <span id="usersWaCounter"
-                        style="background:rgba(37,211,102,0.1); color:#25D366; padding:4px 12px; border-radius:10px; font-size:13px; font-weight:700; border:1px solid rgba(37,211,102,0.3);">WA: -</span>
+                        style="background:rgba(37,211,102,0.1); color:#25D366; padding:4px 12px; border-radius:10px; font-size:13px; font-weight:700; border:1px solid rgba(37,211,102,0.3); display: none;">WA: -</span>
                 </div>
                 <div style="display:flex; gap:10px;">
                     <button class="btn btn-sm btn-outline" onclick="window.location.href='/api/users/export'" style="border-radius:10px; border-color: #0088cc; color: #0088cc;">📥 Exporter (CSV)</button>
@@ -2653,10 +2652,7 @@
                         <b style="font-size:13px; display:flex; align-items:center; gap:6px;">🎁 3. Offres & Marketing</b>
                         <p style="font-size:11px; opacity:0.7; margin:4px 0 0 0;"><b>Packs</b> : créez des offres "Achetez-en 2, recevez le 3ème gratuit". <b>Dégressif</b> : configurez des prix qui baissent selon la quantité.</p>
                     </div>
-                    <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:10px; border-left:3px solid #6a5acd; transition: transform 0.2s; cursor: default;" onmouseover="this.style.transform='translateX(5px)'" onmouseout="this.style.transform='none'">
-                        <b style="font-size:13px; display:flex; align-items:center; gap:6px;">🏪 4. Liaison Fournisseur</b>
-                        <p style="font-size:11px; opacity:0.7; margin:4px 0 0 0;">Liez ce produit à un <b>Fournisseur</b> pour qu'il reçoive les commandes automatiquement et puisse valider la préparation (Bouton "Prêt").</p>
-                    </div>
+
                     <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:10px; border-left:3px solid #4caf50; transition: transform 0.2s; cursor: default;" onmouseover="this.style.transform='translateX(5px)'" onmouseout="this.style.transform='none'">
                         <b style="font-size:13px; display:flex; align-items:center; gap:6px;">👁️ 5. Visibilité & Ordre</b>
                         <p style="font-size:11px; opacity:0.7; margin:4px 0 0 0;">Glissez les cartes (≡) pour trier. Utilisez l'icône "œil" pour masquer un produit momentanément (ex: rupture de stock).</p>
@@ -2698,7 +2694,7 @@
                     </div>
 
                     <!-- Fournisseur (Sorti des options avancées pour visibilité) -->
-                    <div style="margin-bottom:14px;">
+                    <div style="margin-bottom:14px; display:none;">
                         <label style="font-size:12px; font-weight:600;">🏪 Fournisseur (Optionnel)</label>
                         <select id="prod_supplier_id" style="margin-bottom:0; font-size:14px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px; height:40px; color:white; width:100%; cursor:pointer;">
                             <option value="">Aucun (vente directe)</option>
@@ -3162,7 +3158,7 @@
         </section>
 
         <!-- SECTION: Fournisseurs -->
-        <section class="section" id="section-suppliers">
+        <section class="section" id="section-suppliers" style="display: none !important;">
             <div class="card" style="margin-bottom:20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                     <h1 style="margin:0;">🏪 Fournisseurs</h1>
@@ -3546,8 +3542,8 @@
                         <small style="opacity:0.6;">C'est le lien vers votre compte privé Telegram, PAS vers le canal.</small>
                     </div>
                     <div>
-                        <label>✉️ Lien Contact Privé (WhatsApp)</label>
-                        <input id="set_private_contact_wa_url" placeholder="https://wa.me/33612345678">
+                        <label style="display: none;">✉️ Lien Contact Privé (WhatsApp)</label>
+                        <input id="set_private_contact_wa_url" placeholder="https://wa.me/33612345678" style="display: none;">
                     </div>
                     <div>
                         <label>📢 Lien Canal Telegram</label>
@@ -3584,13 +3580,6 @@
                         <div class="flex align-center gap-10">
                             <span style="font-size:20px;">🔸</span>
                             <div>
-                                <div style="font-weight:600; font-size:14px;">Bot WhatsApp</div>
-                                <div style="font-size:12px; opacity:0.6;">Activer/Désactiver le service WA</div>
-                            </div>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="set_enable_whatsapp">
-                            <span class="switch-slider"></span>
                         </label>
                     </div>
                     <div class="switch-row">
@@ -6425,16 +6414,24 @@
             const div = document.createElement('div');
             div.className = 'discount-row';
             div.style = 'display:grid; grid-template-columns: 1fr 1fr 40px; gap:8px; align-items:end; background:rgba(255,255,255,0.03); padding:8px; border-radius:8px;';
+            
+            let options = '';
+            for (let i = 1; i <= 100; i++) {
+                options += `<option value="${i}" ${parseInt(qty) === i ? 'selected' : ''}>${i}</option>`;
+            }
+
             div.innerHTML = `
                 <div>
-                    <label style="font-size:10px">Quantité</label>
-                    <input type="number" class="discount-qty" value="${qty}" placeholder="ex: 2" min="1" step="1">
+                    <label style="font-size:10px">Quantité (Nb. Sachets)</label>
+                    <select class="discount-qty" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:white; font-size:12px; height:36px; padding:0 8px;">
+                        ${options}
+                    </select>
                 </div>
                 <div>
                     <label style="font-size:10px">Prix TOTAL (€)</label>
-                    <input type="number" class="discount-price" value="${price}" placeholder="ex: 120" min="0">
+                    <input type="number" class="discount-price" value="${price}" placeholder="ex: 120" min="0" style="height:36px;">
                 </div>
-                <button class="btn btn-sm btn-outline text-danger" onclick="this.parentElement.remove()" style="padding:8px; margin-bottom:0">🗑️</button>
+                <button class="btn btn-sm btn-outline text-danger" onclick="this.parentElement.remove()" style="padding:8px; margin-bottom:0; height:36px; display:flex; align-items:center; justify-content:center;">🗑️</button>
             `;
             document.getElementById('discounts_list').appendChild(div);
         }

@@ -210,14 +210,13 @@ function setupOrderSystem(bot) {
         for (let i = 0; i < multipliers.length; i += 2) {
             const m1 = multipliers[i];
             const q1 = m1 * multiplier;
-            // Correction: Afficher le poids total pour plus de clarté
-            const label1 = multiplier > 1 ? `${q1}${unitDisplay} (${m1} sachet${m1 > 1 ? 's' : ''})` : `${q1}${unitDisplay}`;
+            const label1 = `${m1}`;
             const row = [Markup.button.callback(label1, `qty_${productId}_${q1}`)];
             
             if (i + 1 < multipliers.length) {
                 const m2 = multipliers[i+1];
                 const q2 = m2 * multiplier;
-                const label2 = multiplier > 1 ? `${q2}${unitDisplay} (${m2} sachet${m2 > 1 ? 's' : ''})` : `${q2}${unitDisplay}`;
+                const label2 = `${m2}`;
                 row.push(Markup.button.callback(label2, `qty_${productId}_${q2}`));
             }
             qtyRows.push(row);
@@ -337,12 +336,13 @@ function setupOrderSystem(bot) {
         if (multiplier > 1) {
             const nSachets = qty / multiplier;
             qtyLabel = `${qty}${unitDisplay}`;
-            sachetInfo = ` (${nSachets} sachet${nSachets > 1 ? 's' : ''} de ${multiplier}${unitDisplay})`;
+            sachetInfo = `\n📦 <b>Format : ${nSachets} sachet${nSachets > 1 ? 's' : ''} de ${multiplier}${unitDisplay}</b>`;
         } else {
             qtyLabel = `${qty}${unitDisplay || 'x'}`;
         }
 
-        const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty} {name}</b>', { qty: qtyLabel, name: product.name + sachetInfo }) + (unitAmount ? ` (${unitAmount})` : '') + '\n' +
+        const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty} {name}</b>', { qty: qtyLabel, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + 
+            sachetInfo + '\n' +
             t(user, 'label_price_total', '💰 Prix :') + ` <b>${totalPrice}€</b>\n\n` +
             t(user, 'msg_what_to_do', 'Que voulez-vous faire ?');
 
@@ -1557,8 +1557,8 @@ function setupOrderSystem(bot) {
 
         // Sinon, c'est la vue CLIENT (suivi de commande)
         await ctx.answerCbQuery();
-        let statusEmoji = o => o.status === 'pending' ? '⏳' : (o.status === 'taken' ? '🚚' : (o.status === 'delivered' ? '✅' : '❌'));
-        let statusLabel = o => o.status === 'pending' ? t(user, 'label_pending', 'En attente') : (o.status === 'taken' ? t(user, 'label_taken', 'En cours') : (o.status === 'delivered' ? t(user, 'label_delivered', 'Livrée') : t(user, 'label_cancelled', 'Annulée')));
+        let statusEmoji = o => (o.status === 'pending' || o.status === 'supplier_pending') ? '⏳' : (o.status === 'taken' ? '🚚' : (o.status === 'delivered' ? '✅' : '❌'));
+        let statusLabel = o => (o.status === 'pending' || o.status === 'supplier_pending') ? t(user, 'label_pending', 'En attente') : (o.status === 'taken' ? t(user, 'label_taken', 'En cours') : (o.status === 'delivered' ? t(user, 'label_delivered', 'Livrée') : t(user, 'label_cancelled', 'Annulée')));
 
         let text = t(user, 'msg_order_tracking', `📦 <b>Suivi Commande #${orderId.slice(-5)}</b>`, { id: orderId.slice(-5) }) + `\n\n` +
             t(user, 'label_status', `🔹 Statut :`) + ` ${statusEmoji(order)} <b>${statusLabel(order)}</b>\n` +
@@ -2534,8 +2534,9 @@ function setupOrderSystem(bot) {
             const settings = await getAppSettings();
             const activeOrders = await getClientActiveOrders(`${ctx.platform}_${ctx.from.id}`);
 
-            let text = `<b>${settings.label_help || 'Aide & Support'}</b>\n\n` +
-                `${settings.msg_help_intro || 'Besoin d\'aide ? Choisissez une option ci-dessous :'}`;
+            let text = `<b>✨ CENTRE D’ASSISTANCE — ${settings.bot_name || 'LE PLUG IDF'}</b>\n\n` +
+                `<i>Votre satisfaction est notre priorité. Nos équipes sont disponibles pour vous accompagner.</i>\n\n` +
+                `<b>Comment pouvons-nous vous aider aujourd'hui ?</b>`;
 
             const buttons = [];
             if (activeOrders.length > 0) {
@@ -2579,7 +2580,10 @@ function setupOrderSystem(bot) {
         const settings = await getAppSettings();
         await notifyAdmins(bot, `❓ <b>DEMANDE "OÙ EST MA COMMANDE"</b>\n\n🆔 ID : <code>#${shortId}</code>\n👤 Client : ${ctx.from.first_name}`);
 
-        await safeEdit(ctx, `✅ <b>Votre demande a été transmise !</b>\n\nLe livreur (ID #${shortId}) a été notifié de votre attente. Il reviendra vers vous très vite par message.`,
+        await safeEdit(ctx, `✅ <b>DEMANDE PRIORITAIRE ENVOYÉE</b>\n\n` +
+            `Nous avons alerté votre livreur pour la commande <code>#${shortId}</code>.\n\n` +
+            `Une mise à jour de votre estimation d'arrivée vous sera envoyée dans les plus brefs délais par message direct.\n\n` +
+            `<i>Merci de votre patience et de votre confiance.</i>`,
             Markup.inlineKeyboard([[Markup.button.callback('◀️ Retour', 'help_menu')]])
         );
     });
