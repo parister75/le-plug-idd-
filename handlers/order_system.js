@@ -196,7 +196,7 @@ function setupOrderSystem(bot) {
         const rawVal = String(product.unit_value || '1');
         const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
         const unit = product.unit || '';
-        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
+        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : 'g';
 
         const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);
         let text = `🌟 <b>${esc(product.name)}</b> 🌟\n\n` +
