@@ -4503,7 +4503,12 @@
                     return `
                     <tr style="border-bottom: 2px solid #222;">
                         <td data-label="Plateforme"><span class="badge" style="background:${o.platform === 'whatsapp' ? 'rgba(37,211,102,0.1)' : 'rgba(0,136,204,0.1)'}; color:${o.platform === 'whatsapp' ? '#25D366' : '#0088cc'}; border:1px solid currentColor; font-size:9px; font-weight:800; padding:1px 5px;">${o.platform?.toUpperCase() || 'TG'}</span></td>
-                        <td data-label="Identité"><b>${o.first_name}</b></td>
+                        <td data-label="Identité">
+                            <div style="display:flex; flex-direction:column; gap:2px;">
+                                <b>${o.first_name}</b>
+                                <button class="btn btn-sm btn-outline" style="border-color:#25D366; color:#25D366; font-size:10px; padding:2px 6px; width:fit-content;" onclick="contactUser('${o.platform}', '${o.username || ''}', '${o.user_id ? o.user_id.split('_')[1] : ''}', '${o.phone || ''}')">💬 Contact</button>
+                            </div>
+                        </td>
                         <td data-label="Statut & Actions" style="background: rgba(255,165,0,0.05); min-width: 160px;">
                             <div style="display:flex; flex-direction:column; gap:4px;">
                                 ${o.is_approved === false ? `<button class="btn btn-accent btn-sm" style="width:100%; background:linear-gradient(135deg, #00b400, #008000); box-shadow:0 4px 10px rgba(0,180,0,0.3);" onclick="approveUserAccount('${o.user_id}', '${o.first_name}')">✅ ACCORDER L'ACCÈS</button>` : ''}
@@ -4575,7 +4580,10 @@
                                     <div class="m-order-name">${o.first_name}
                                         <span class="m-order-platform" style="color:${platformColor}; background:${platformBg};">${o.platform?.toUpperCase() || 'TG'}</span>
                                     </div>
-                                    <div class="m-order-time">🕐 ${createdTime}${o.scheduled_at ? ' · 📅 ' + o.scheduled_at : ''}</div>
+                                    <div style="display:flex; gap:8px; align-items:center;">
+                                        <div class="m-order-time">🕐 ${createdTime}${o.scheduled_at ? ' · 📅 ' + o.scheduled_at : ''}</div>
+                                        <button class="btn btn-sm btn-outline" style="border-color:#25D366; color:#25D366; font-size:9px; padding:1px 4px; border-radius:4px; height:auto; line-height:1;" onclick="contactUser('${o.platform}', '${o.username || ''}', '${o.user_id ? o.user_id.split('_')[1] : ''}', '${o.phone || ''}')">💬 Contact</button>
+                                    </div>
                                     ${isNew ? '<span class="m-order-new-tag">🔥 NOUVEAU</span>' : ''}
                                 </div>
                             </div>
@@ -6831,6 +6839,7 @@
                         </td>
                         <td data-label="Commandes"><span class="badge" style="border:1px solid var(--border)">${u.order_count || 0}</span></td>
                         <td data-label="Actions" class="action-btns">
+                            <button class="btn btn-outline btn-sm" onclick="contactUser('${u.platform}', '${u.username || ''}', '${u.platform_id}', '${u.phone || ''}')" style="border-color:#25D366; color:#25D366">💬 Contact</button>
                             <button class="btn btn-outline btn-sm" onclick="editUserProfileUI('${u.doc_id}', '${(u.first_name || '').replace(/'/g, "\\'")}', '${u.phone || ''}')" style="border-color:#ff9500; color:#ff9500">✏️ Profil</button>
                             <button class="btn btn-outline btn-sm" onclick="showUserAnalytics('${u.doc_id}')" style="border-color:#ff3b30; color:#ff3b30">📊 Analytique</button>
                             <button class="btn btn-outline btn-sm" onclick="viewUserAddresses('${u.doc_id}')" style="border-color:#5ac8fa; color:#5ac8fa">📍 Adresses</button>
@@ -6887,6 +6896,7 @@
                         </div>
 
                             <div class="m-user-actions">
+                                <button class="m-btn" onclick="contactUser('${u.platform}', '${u.username || ''}', '${u.platform_id}', '${u.phone || ''}')" style="color:#25D366; border-color:rgba(37,211,102,0.3);">💬 Contact</button>
                                 <button class="m-btn" onclick="editUserProfileUI('${u.doc_id}', '${escapedName}', '${u.phone || ''}')" style="color:#ff9500; border-color:rgba(255,149,0,0.3);">✏️ Profil</button>
                                 <button class="m-btn" onclick="showUserAnalytics('${u.doc_id}')" style="color:#ff3b30; border-color:rgba(255,59,48,0.3);">📊 Analytique</button>
                                 <button class="m-btn" onclick="viewUserAddresses('${u.doc_id}')" style="color:#5ac8fa; border-color:rgba(90,200,250,0.3);">📍 Adresses</button>
@@ -7572,6 +7582,37 @@
             };
 
             modal.classList.add('active');
+        }
+
+        /**
+         * Ouvre une conversation avec le client sur la plateforme appropriée
+         */
+        function contactUser(platform, username, platformId, phone) {
+            if (platform === 'whatsapp') {
+                if (!phone && platformId) {
+                    // Nettoyage de l'ID WhatsApp pour obtenir le numéro
+                    phone = platformId.split('@')[0].split(':')[0];
+                }
+                if (phone) {
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    window.open(`https://wa.me/${cleanPhone}`, '_blank');
+                } else {
+                    showToast("Numéro WhatsApp introuvable", "error");
+                }
+            } else {
+                // Telegram
+                if (username) {
+                    const cleanUsername = username.replace('@', '');
+                    window.open(`https://t.me/${cleanUsername}`, '_blank');
+                } else if (platformId) {
+                    // Tentative d'ouverture via tg://user?id= (ne fonctionne que si le client TG est installé et gère le protocole)
+                    const cleanId = platformId.replace('telegram_', '');
+                    window.open(`tg://user?id=${cleanId}`, '_blank');
+                    showToast("Tentative d'ouverture directe (nécessite Telegram Desktop)", "info");
+                } else {
+                    showToast("Identifiant Telegram introuvable", "error");
+                }
+            }
         }
 
         // --- PREMIUM TIMING LOGIC (Popover + Custom Selection) ---
