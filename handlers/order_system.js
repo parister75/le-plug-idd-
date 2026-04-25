@@ -149,6 +149,11 @@ function setupOrderSystem(bot) {
         await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
     }
 
+    const formatPrice = (val) => {
+        const num = parseFloat(val);
+        return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+    };
+
     bot.action('view_catalog', async (ctx) => {
         await ctx.answerCbQuery();
         // Nettoyer les états marketplace pour éviter l'interception des messages
@@ -181,7 +186,7 @@ function setupOrderSystem(bot) {
 
         // Affichage des tarifs dégressifs (GRILLE DE TARIFS PREMIUM)
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
-            const multiplier = parseInt(product.unit_value) || 1;
+            const multiplier = parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1;
             const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? (product.unit) : 'unités';
             
             const tiers = product.discounts_config.map(d => {
@@ -258,28 +263,38 @@ function setupOrderSystem(bot) {
         }
 
         // Calcul du prix avec gestion des paliers dégressifs
-        const unitValue = parseInt(product.unit_value) || 1;
-        const basePrice = parseFloat(product.price) || 0;
+        const unitValue = Math.max(0.001, parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1);
+        const basePrice = Math.max(0, parseFloat(product.price) || 0);
         
         // La quantité "interne" pour les réductions est basée sur le nombre de "packs" (unit_value)
-        const packsSelected = qty / unitValue; 
+        const packsSelected = (Number.isFinite(qty) && Number.isFinite(unitValue)) ? (qty / unitValue) : 0; 
         
         let totalPriceValue = basePrice * packsSelected;
 
-        if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
-            // Trier les paliers par quantité décroissante
-            const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
-            // Trouver le meilleur palier pour le nombre de packs sélectionnés
-            const bestDiscount = sortedDiscounts.find(d => packsSelected >= d.qty);
+        if (product.has_discounts && product.discounts_config && Array.isArray(product.discounts_config)) {
+            const sortedTiers = [...product.discounts_config]
+                .filter(d => d && Number.isFinite(parseFloat(d.qty)) && parseFloat(d.qty) > 0)
+                .sort((a, b) => b.qty - a.qty);
             
-            if (bestDiscount) {
-                const discountAmount = parseFloat(bestDiscount.total || bestDiscount.total_price || 0);
-                totalPriceValue = discountAmount + (packsSelected - bestDiscount.qty) * basePrice;
+            let remaining = packsSelected;
+            let total = 0;
+
+            for (const tier of sortedTiers) {
+                const tierQty = parseFloat(tier.qty);
+                const tierPrice = parseFloat(tier.total || tier.total_price || 0);
+                
+                if (Number.isFinite(tierQty) && tierQty > 0 && Number.isFinite(tierPrice) && remaining >= tierQty) {
+                    const numTiers = Math.floor(remaining / tierQty);
+                    total += numTiers * tierPrice;
+                    remaining -= numTiers * tierQty;
+                }
             }
+            total += Math.max(0, remaining) * basePrice;
+            totalPriceValue = total;
         }
         
-        if (isNaN(totalPriceValue)) {
-            console.error(`❌ [NaN Fix] totalPriceValue is NaN for product ${productId}. basePrice=${basePrice}, packsSelected=${packsSelected}, qty=${qty}`);
+        if (!Number.isFinite(totalPriceValue)) {
+            console.error(`❌ [NaN Fix] totalPriceValue is invalid for product ${productId}. basePrice=${basePrice}, packsSelected=${packsSelected}, qty=${qty}`);
             totalPriceValue = 0;
         }
         
@@ -423,15 +438,15 @@ function setupOrderSystem(bot) {
         const buttons = [];
 
         cart.forEach((item, idx) => {
-            const price = parseFloat(item.totalPrice);
+            const price = parseFloat(item.totalPrice) || 0;
             total += price;
             const unit = item.productUnit || 'g';
             const qtyLabel = item.nSachets ? `(x${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''} - ${item.qty}${unit})` : `(x${item.qty}${unit})`;
-            summary += `${idx + 1}. ${item.productName} <b>${qtyLabel}</b>${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${price.toFixed(2)}€</b>\n`;
+            summary += `${idx + 1}. ${item.productName} <b>${qtyLabel}</b>${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${formatPrice(price)}€</b>\n`;
             // Bouton de suppression individuelle
             buttons.push([Markup.button.callback(`❌ ${t(user, 'btn_back', 'Retirer')} ${item.productName}`, `remove_item_${idx}`)]);
         });
-        summary += `\n💰 <b>` + t(user, 'label_total_price', 'TOTAL :') + ` ${total.toFixed(2)}€</b>`;
+        summary += `\n💰 <b>` + t(user, 'label_total_price', 'TOTAL :') + ` ${formatPrice(total)}€</b>`;
 
         buttons.push([Markup.button.callback(t(user, 'btn_checkout', '💳 Commander'), 'start_checkout'), Markup.button.callback(t(user, 'btn_add_more', '🛍️ Continuer'), 'view_catalog')]);
         buttons.push([Markup.button.callback(t(user, 'btn_clear_cart', '❌ Vider'), 'clear_cart'), Markup.button.callback(t(user, 'btn_back_menu', '◀️ Menu'), 'main_menu')]);
@@ -630,17 +645,39 @@ function setupOrderSystem(bot) {
 
         // Support comma and remove non-numeric chars for baseVal calculation
         const cleanUnitVal = String(product.unit_value || '1').replace(',', '.');
-        const baseVal = parseFloat(cleanUnitVal) || 1;
-        const effectiveQty = (amount / baseVal) * qty;
+        const baseVal = Math.max(0.001, parseFloat(cleanUnitVal) || 1);
+        const effectiveQty = (Number.isFinite(amount) && Number.isFinite(baseVal) && Number.isFinite(qty)) ? ((amount / baseVal) * qty) : 0;
 
-        let totalPriceValue = (product.price / baseVal) * amount * qty;
-        if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
-            const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
-            const bestDiscount = sortedDiscounts.find(d => effectiveQty >= d.qty);
-            if (bestDiscount) {
-                totalPriceValue = bestDiscount.total_price + (effectiveQty - bestDiscount.qty) * product.price;
+        const basePrice = Math.max(0, parseFloat(product.price) || 0);
+        let totalPriceValue = (basePrice / baseVal) * amount * qty;
+
+        if (product.has_discounts && product.discounts_config && Array.isArray(product.discounts_config)) {
+            const sortedTiers = [...product.discounts_config]
+                .filter(d => d && Number.isFinite(parseFloat(d.qty)) && parseFloat(d.qty) > 0)
+                .sort((a, b) => b.qty - a.qty);
+            
+            let remaining = effectiveQty;
+            let total = 0;
+
+            for (const tier of sortedTiers) {
+                const tierQty = parseFloat(tier.qty);
+                const tierPrice = parseFloat(tier.total || tier.total_price || 0);
+                
+                if (Number.isFinite(tierQty) && tierQty > 0 && Number.isFinite(tierPrice) && remaining >= tierQty) {
+                    const numTiers = Math.floor(remaining / tierQty);
+                    total += numTiers * tierPrice;
+                    remaining -= numTiers * tierQty;
+                }
             }
+            total += Math.max(0, remaining) * (basePrice / baseVal);
+            totalPriceValue = total;
         }
+
+        if (!Number.isFinite(totalPriceValue)) {
+            console.error(`❌ [NaN Fix-UnitSelect] totalPriceValue is invalid for product ${pId}. basePrice=${basePrice}, effectiveQty=${effectiveQty}`);
+            totalPriceValue = 0;
+        }
+
         let finalPrice = totalPriceValue.toFixed(2);
 
         let bundleText = "";
@@ -1612,7 +1649,7 @@ function setupOrderSystem(bot) {
             `📍 Adresse : <code>${order.address}</code>\n` +
             (order.scheduled_at ? `🕒 <b>PRÉVU POUR : ${order.scheduled_at}</b>\n\n` : `🕒 Dès que possible\n\n`) +
             `💰 <b>Détails du Paiement :</b>\n` +
-            `   ├ Total commande : ${parseFloat(order.total_price + (order.discount_applied || 0)).toFixed(2)}€\n` +
+            `   ├ Total commande : ${(parseFloat(order.total_price) + (order.discount_applied || 0)).toFixed(2)}€\n` +
             `   ├ Crédit utilisé : ${(order.discount_applied || 0).toFixed(2)}€\n` +
             `   └ 💵 <b>À ENCAISSER : ${parseFloat(order.total_price).toFixed(2)}€</b>\n\n` +
             `💡 <i>Pensez à partager votre position en direct pour notifier le client de votre arrivée.</i>\n\n` +
