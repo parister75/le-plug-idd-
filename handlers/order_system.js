@@ -989,7 +989,7 @@ function setupOrderSystem(bot) {
         const pending = pendingOrders.get(userId);
         if (!pending) return ctx.reply(settings.msg_session_expired || "Session expirée.");
 
-        pending.scheduled_at = `${date} ${hour}`;
+        pending.scheduled_at = `${date} ${hour.replace('h', ':')}`;
 
         const addrState = awaitingAddressDetails.get(userId);
         if (addrState) addrState.finalized = true;

@@ -325,12 +325,23 @@ async function checkPlannedOrders(bot) {
         if (orders.length === 0) return;
         const nowParis = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
         for (const order of orders) {
-            if (!order.scheduled_at || !order.scheduled_at.includes(' ')) continue;
+            if (!order.scheduled_at) continue;
             
-            const parts = order.scheduled_at.split(' ');
-            const datePart = parts[0];
-            const timePart = parts[1];
-            if (!timePart) continue;
+            let datePart, timePart;
+            if (typeof order.scheduled_at === 'string' && order.scheduled_at.includes(' ')) {
+                const parts = order.scheduled_at.split(' ');
+                datePart = parts[0];
+                timePart = parts[1];
+            } else if (typeof order.scheduled_at === 'string' && order.scheduled_at.includes('T')) {
+                const parts = order.scheduled_at.split('T');
+                datePart = parts[0];
+                timePart = parts[1].split('.')[0].split('+')[0]; // HH:mm:ss
+            } else if (order.scheduled_at instanceof Date) {
+                datePart = order.scheduled_at.toISOString().split('T')[0];
+                timePart = order.scheduled_at.toISOString().split('T')[1].split('.')[0];
+            } else {
+                continue;
+            }
 
             const timeClean = timePart.replace('h', ':');
             const [h, m] = timeClean.split(':');
