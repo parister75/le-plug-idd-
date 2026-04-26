@@ -122,39 +122,58 @@ function setupStartHandler(bot) {
             const isApproved = registeredUser.is_approved !== false || registeredUser.is_livreur === true || (await isAdmin(ctx));
 
             if (!isApproved) {
-                // NOUVEAU: Prévenir les doublons (Debounce)
+                // Alerte Admin avec bouton d'approbation (seulement si pas déjà envoyé récemment)
                 const lastRequestAt = registeredUser.data?.request_sent_at;
-                const fiveMinAgo = Date.now() - (5 * 60 * 1000);
-                if (!lastRequestAt || lastRequestAt < Date.now() - (10 * 60 * 1000)) {
-                    // Marquer comme envoyé IMMÉDIATEMENT (avant notifyAdmins)
+                const tenMinAgo = Date.now() - (10 * 60 * 1000);
+                
+                if (!lastRequestAt || lastRequestAt < tenMinAgo) {
                     const { supabase, COL_USERS } = require('../services/database');
                     registeredUser.data = registeredUser.data || {};
                     registeredUser.data.request_sent_at = Date.now();
-                    supabase.from(COL_USERS).update({ data: registeredUser.data }).eq('id', docId).then(() => {}, () => {});
+                    supabase.from(COL_USERS).update({ data: registeredUser.data }).eq('id', docId).catch(() => {});
 
-                    // Alerte Admin avec bouton d'approbation
-                    const adminMsg = `🆕 <b>DEMANDE D'ACCÈS</b>\n\n` +
+                    const adminMsg = `🆕 <b>NOUVELLE DEMANDE D'ACCÈS</b>\n\n` +
                         `👤 Client : ${user.first_name}\n` +
-                        `🆔 ID : <code>${user.id}</code> (Platform: ${ctx.platform})\n` +
+                        `🆔 ID : <code>${user.id}</code>\n` +
                         `Username : @${user.username || 'Inconnu'}\n\n` +
-                        `<i>Cliquez sur le bouton ci-dessous pour lui donner accès au catalogue.</i>`;
+                        `<i>L'utilisateur est en attente de validation.</i>`;
                     
                     const adminKeyboard = Markup.inlineKeyboard([
-                        [Markup.button.callback('✅ DONNER ACCÈS', `approve_${ctx.platform}_${user.id}`)]
+                        [Markup.button.callback('✅ APPROUVER MAINTENANT', `approve_${ctx.platform}_${user.id}`)]
                     ]);
-
                     await notifyAdmins(bot, adminMsg, adminKeyboard).catch(() => {});
                 }
-                
-                if (settings.private_contact_url) b.push([Markup.button.url('✉️ Telegram : Admin', settings.private_contact_url)]);
-                b.push([Markup.button.url('📢 S’abonner au canal', settings.channel_url || 'https://t.me/channel')]);
-                b.push([Markup.button.callback('🔄 Rafraîchir mon statut', 'start')]);
-                
-                const restrictedKeyboard = Markup.inlineKeyboard(b);
+
+                // Affichage des canaux de validation
+                let channels = [];
+                try {
+                    channels = typeof settings.verification_channels === 'string' ? JSON.parse(settings.verification_channels) : (settings.verification_channels || []);
+                } catch(e) {
+                    channels = [
+                        { label: 'Canal 1', url: 'https://t.me/+qTYatGLmccpkZmRk' },
+                        { label: 'Canal 2', url: 'https://t.me/leplug_idf' }
+                    ];
+                }
+
+                const restrictedText = `🛑 <b>ACCÈS RESTREINT</b>\n\n` +
+                    `Bonjour <b>${user.first_name}</b>, votre compte est en attente de validation par un administrateur.\n\n` +
+                    `⚠️ <b>IMPORTANT :</b> Pour être validé, vous devez impérativement rejoindre les canaux suivants :\n` +
+                    channels.map(c => `🔹 <a href="${c.url}">${c.label}</a>`).join('\n') +
+                    `\n\nUne fois que vous avez rejoint, cliquez sur le bouton ci-dessous pour prévenir l'administrateur.`;
+
+                const buttons = [];
+                channels.forEach((c, index) => {
+                    buttons.push([Markup.button.url(`📢 ${c.label}`, c.url)]);
+                });
+                buttons.push([Markup.button.callback('✅ J\'AI REJOINT LES CANAUX', `notify_join_${docId}`)]);
+                if (settings.private_contact_url) {
+                    buttons.push([Markup.button.url('✉️ Contact Admin', settings.private_contact_url)]);
+                }
+                buttons.push([Markup.button.callback('🔄 Rafraîchir mon statut', 'start')]);
 
                 return await safeEdit(ctx, restrictedText, {
                     photo: settings.welcome_photo || null,
-                    ...restrictedKeyboard
+                    ...Markup.inlineKeyboard(buttons)
                 });
             }
 
@@ -390,17 +409,23 @@ function setupStartHandler(bot) {
         return next();
     });
 
-    bot.action('check_sub', async (ctx) => {
-        const settings = await getAppSettings();
-        const isSubscribed = await checkSubscription(bot, ctx, settings);
+    bot.action(/^notify_join_(.+)$/, async (ctx) => {
+        const docId = ctx.match[1];
+        await ctx.answerCbQuery('✅ Demande envoyée à l\'administrateur !');
         
-        if (!isSubscribed) {
-            return await ctx.answerCbQuery('❌ Vous n\'êtes pas encore abonné au canal !', { show_alert: true });
-        }
+        const user = ctx.from;
+        const adminMsg = `🔔 <b>CONFIRMATION D'ADHÉSION</b>\n\n` +
+            `L'utilisateur <b>${user.first_name}</b> (@${user.username || 'Inconnu'}) affirme avoir rejoint les canaux de validation.\n` +
+            `🆔 ID : <code>${user.id}</code>\n\n` +
+            `<i>Veuillez vérifier et l'approuver si tout est en règle.</i>`;
         
-        await ctx.answerCbQuery('✅ Merci pour votre abonnement !');
-        // Relancer le start
-        return bot.handleUpdate({ ...ctx.update, message: { text: '/start', from: ctx.from } });
+        const adminKeyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('✅ APPROUVER MAINTENANT', `approve_${ctx.platform}_${user.id}`)]
+        ]);
+
+        await notifyAdmins(bot, adminMsg, adminKeyboard).catch(() => {});
+        
+        return ctx.reply('🙏 <b>Demande reçue !</b>\n\nUn administrateur va vérifier votre adhésion aux canaux et valider votre compte sous peu. Merci de votre patience.', { parse_mode: 'HTML' });
     });
 }
 /**

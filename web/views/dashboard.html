@@ -3560,6 +3560,16 @@
                         </div>
                         <button class="btn btn-outline btn-sm" onclick="addCustomLinkRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter un lien personnalisé</button>
                     </div>
+
+                    <!-- NOUVEAU : Canaux de Validation (Verification Channels) -->
+                    <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px;">
+                        <h4 style="margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px;">✅ Canaux de Validation Obligatoires</h4>
+                        <p style="font-size:11px; opacity:0.6; margin-bottom:10px;">Ces canaux sont affichés aux nouveaux utilisateurs en attente de validation.</p>
+                        <div id="verification_channels_container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
+                            <!-- Dynamically populated -->
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="addVerificationChannelRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter un canal de validation</button>
+                    </div>
                 </div>
 
                 <h3 style="margin-top:25px; margin-bottom:15px; font-size:18px;">Activation des plateformes & services</h3>
@@ -6021,6 +6031,23 @@
                 });
             }
 
+            // Verification Channels Initialization
+            const vcContainer = document.getElementById('verification_channels_container');
+            if (vcContainer) {
+                vcContainer.innerHTML = '';
+                let vChannels = [];
+                try {
+                    vChannels = typeof s.verification_channels === 'string' ? JSON.parse(s.verification_channels) : (s.verification_channels || []);
+                } catch (e) { console.error('Parse verification_channels failed', e); }
+                if (vChannels && Array.isArray(vChannels) && vChannels.length > 0) {
+                    vChannels.forEach(c => addVerificationChannelRow(c.label, c.url));
+                } else {
+                    // Defaults if empty
+                    addVerificationChannelRow('Canal 1', 'https://t.me/+qTYatGLmccpkZmRk');
+                    addVerificationChannelRow('Canal 2', 'https://t.me/leplug_idf');
+                }
+            }
+
             // Plateformes
             setVal('set_enable_telegram', s.enable_telegram);
             setVal('set_enable_whatsapp', s.enable_whatsapp);
@@ -7271,6 +7298,10 @@
                         label: row.querySelector('.link-label-input').value,
                         url: row.querySelector('.link-url-input').value
                     })).filter(l => l.url.trim() !== '' || l.label.trim() !== '')),
+                    verification_channels: JSON.stringify(Array.from(document.querySelectorAll('.verification-channel-row')).map(row => ({
+                        label: row.querySelector('.vc-label-input').value,
+                        url: row.querySelector('.vc-url-input').value
+                    })).filter(c => c.url.trim() !== '')),
                     points_ratio: parseFloat(getVal('set_pts_ratio')) || 1,
                     points_exchange: parseInt(getVal('set_pts_exchange')) || 100,
                     points_credit_value: parseFloat(getVal('set_pts_credit_value')) || 5,
