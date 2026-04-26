@@ -1015,6 +1015,39 @@ function createServer() {
         }
     });
 
+    app.post('/api/admin/unblock-and-broadcast', authMiddleware, async (req, res) => {
+        const { message } = req.body;
+        if (!message) return res.status(400).json({ error: 'Message manquant' });
+
+        try {
+            const { supabase, COL_USERS, clearUserCache } = require('./services/database');
+            const { broadcastMessage } = require('./services/broadcast');
+
+            // 1. Débloquer tout le monde (is_blocked = true -> false)
+            debugLog(`[ADMIN] UNBLOCK ALL USERS REQUESTED BY ${req.user?.platform_id}`);
+            const { error: unblockError } = await supabase.from(COL_USERS).update({ 
+                is_blocked: false, 
+                blocked_at: null 
+            }).eq('is_blocked', true);
+            
+            if (unblockError) throw unblockError;
+
+            // 2. Nettoyer le cache local pour forcer le rechargement
+            if (typeof _userCache !== 'undefined') _userCache.clear();
+
+            // 3. Lancer la diffusion
+            debugLog(`[ADMIN] BROADCASTING TO ALL: ${message}`);
+            // Note: broadcastMessage(platform, message) -> platform='users' cible tous les users non bloqués
+            // Puisque nous venons de les débloquer, tout le monde recevra (si possible)
+            const result = await broadcastMessage('users', message);
+
+            res.json({ success: true, result });
+        } catch (e) {
+            debugLog(`[ADMIN-ERR] Unblock & Broadcast failed: ${e.message}`);
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     app.post('/api/admin/promote', authMiddleware, async (req, res) => {
         const { platformId, role, action } = req.body;
         if (!platformId || !role) return res.status(400).json({ error: 'Données manquantes' });
