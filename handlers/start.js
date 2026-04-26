@@ -150,8 +150,7 @@ function setupStartHandler(bot) {
                     channels = typeof settings.verification_channels === 'string' ? JSON.parse(settings.verification_channels) : (settings.verification_channels || []);
                 } catch(e) {
                     channels = [
-                        { label: 'Canal Officiel', url: 'https://t.me/+qTYatGLmccpkZmRk' },
-                        { label: 'Contact Secrétaire', url: 'https://t.me/leplug_idf' }
+                        { label: 'Canal Officiel', url: 'https://t.me/+qTYatGLmccpkZmRk' }
                     ];
                 }
 
