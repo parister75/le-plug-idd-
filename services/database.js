@@ -12,16 +12,14 @@ const COL_DAILY_STATS = 'bot_daily_stats';
 const COL_REVIEWS = 'bot_reviews';
 const COL_SUPPLIER_PRODUCTS = 'supplier_marketplace';
 const COL_SUPPLIER_ORDERS = 'supplier_market_orders';
-const COL_SUPPORT_LOGS = 'bot_support_logs';
-const DB_TIMEOUT = 30000;
+const DB_TIMEOUT = 20000;
 
 function ts() { return new Date().toISOString(); }
 
-// Simple server-side cache to avoid heavy DB scans on every refresh
 const _statsCache = {
     overview: null,
     analytics: null,
-    ttl: 120000, // 2 minutes (avoid heavy scans on every reload)
+    ttl: 300000, // 5 minutes (augmenté pour une meilleure performance)
     lastOverview: 0,
     lastAnalytics: 0
 };
@@ -39,7 +37,7 @@ function decryptUser(userData) {
         platform: userData.platform || (String(userData.id).startsWith('whatsapp') ? 'whatsapp' : 'telegram')
     };
 
-    // Parse JSONB data field
+    // Analyser le champ de données JSONB
     let meta = userData.data;
     if (typeof meta === 'string') {
         try { meta = JSON.parse(meta); } catch (e) { meta = {}; }
@@ -47,14 +45,14 @@ function decryptUser(userData) {
     if (!meta || typeof meta !== 'object') meta = {};
     decrypted.data = meta;
 
-    // is_available: JSONB wins, then root column, then false
+    // is_available : JSONB l'emporte, puis la colonne racine, puis false
     if (meta.is_available !== undefined) {
         decrypted.is_available = !!meta.is_available;
     } else {
         decrypted.is_available = !!userData.is_available;
     }
 
-    // current_city: JSONB wins, then root column, then null
+    // current_city : JSONB l'emporte, puis la colonne racine, puis null
     if (meta.current_city) {
         decrypted.current_city = meta.current_city;
     } else if (userData.current_city) {
@@ -138,7 +136,12 @@ async function registerUser(platformUser, platform = 'telegram', referrerId = nu
         if (phoneNum) {
             const altSuffix = rawId.includes('@lid') ? '@s.whatsapp.net' : '@lid';
             const altId = `whatsapp_${phoneNum}${altSuffix}`;
-            const { data: altArray } = await supabase.from(COL_USERS).select('*').eq('id', altId).limit(1);
+            
+            // On cherche par ID (docId) ou par platform_id brut
+            const { data: altArray } = await supabase.from(COL_USERS).select('*')
+                .or(`id.eq.${altId},platform_id.eq.${phoneNum}${altSuffix}`)
+                .limit(1);
+
             if (altArray && altArray.length > 0) {
                 existing = altArray[0];
                 _userCache.set(docId, { data: existing, expire: nowMs + 300000 });
@@ -169,14 +172,14 @@ async function registerUser(platformUser, platform = 'telegram', referrerId = nu
     }
 
     const isGroup = platformUser.type === 'group' || platformUser.type === 'supergroup';
+    const needsTypeHealing = existing && !existing.type;
+    const needsReferralCode = existing && !existing.referral_code;
 
     // Si l'utilisateur existe déjà
     if (existing) {
         // Optimisation : Ne mettre à jour last_active en DB que toutes les 5 minutes
         const lastUpdated = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
         const needsDbUpdate = (nowMs - lastUpdated) > 300000; // 5 minutes
-        const needsTypeHealing = !existing.type;
-        const needsReferralCode = !existing.referral_code;
 
         if (needsDbUpdate || needsTypeHealing || needsReferralCode) {
             const updateData = {
@@ -255,7 +258,9 @@ async function registerUser(platformUser, platform = 'telegram', referrerId = nu
         is_available: false,
         current_city: null,
         data: {},
-        referral_code: generateReferralCode(platform, platformUser.id || Date.now())
+        referral_code: generateReferralCode(platform, platformUser.id || Date.now()),
+        first_name_hash: platformUser.first_name ? platformUser.first_name.toLowerCase().trim() : 'utilisateur',
+        username_hash: platformUser.username ? platformUser.username.toLowerCase().trim() : ''
     };
 
     const { error: insertError } = await supabase.from(COL_USERS).insert([newUser]);
@@ -342,7 +347,7 @@ async function processReferral(docId, referralCode) {
             console.log(`[Referral] Code ${referralCode} non trouvé dans la DB.`);
         }
     } catch (e) {
-        console.error("❌ processReferral error:", e.message);
+        console.error("❌ Erreur processReferral :", e.message);
     }
 }
 
@@ -354,7 +359,7 @@ async function getAllActiveUsers(platform = null, type = null) {
 
 // Nouvelle fonction pour le broadcast : inclut TOUS les utilisateurs (même bloqués)
 async function getAllUsersForBroadcast(platform = null, type = null) {
-    let q = supabase.from(COL_USERS).select('id, platform, platform_id, type, username, first_name, last_name, order_count, wallet_balance, points, date_inscription, is_livreur, is_available, is_blocked, current_city, data');
+    let q = supabase.from(COL_USERS).select('id, platform, platform_id, type, username, first_name, last_name, order_count, wallet_balance, points, date_inscription, is_livreur, is_available, is_blocked, current_city, data, blocked_at');
     if (platform && platform !== 'all') q = q.eq('platform', platform);
     if (type === 'livreurs') {
         q = q.eq('is_livreur', true);
@@ -377,7 +382,7 @@ async function getAllUsersForBroadcast(platform = null, type = null) {
  */
 async function markUserBlocked(docId, byAdmin = false) {
     const updateData = { is_blocked: true, blocked_at: ts() };
-    console.log(`[DB] Marking user ${docId} as BLOCKED (byAdmin: ${byAdmin})`);
+    console.log(`[DB] Marquage de l'utilisateur ${docId} comme BLOQUÉ (parAdmin : ${byAdmin})`);
 
     const u = await getUser(docId);
     if (u) {
@@ -389,7 +394,7 @@ async function markUserBlocked(docId, byAdmin = false) {
     _userCache.delete(docId);
 }
 async function markUserUnblocked(docId) {
-    console.log(`[DB] Marking user ${docId} as UNBLOCKED`);
+    console.log(`[DB] Marquage de l'utilisateur ${docId} comme DÉBLOQUÉ`);
     const updateData = { is_blocked: false, blocked_at: null };
     const u = await getUser(docId);
     if (u) {
@@ -402,7 +407,6 @@ async function markUserUnblocked(docId) {
 }
 async function deleteUser(docId) {
     await supabase.from(COL_USERS).delete().eq('id', docId);
-    if (_userCache) _userCache.delete(docId);
 }
 async function incrementOrderCount(docId) {
     const user = await getUser(docId);
@@ -420,7 +424,7 @@ async function updateUserPoints(docId, points) {
     await supabase.from(COL_USERS).update({ points }).eq('id', docId);
     _userCache.delete(docId);
 
-    // Trigger conversion if threshold reached
+    // Déclencher la conversion si le seuil est atteint
     const settings = await getAppSettings();
     const threshold = settings.points_exchange || 100;
     const creditValue = settings.points_credit_value || 5;
@@ -461,12 +465,6 @@ async function setLivreurStatus(userId, platform, isLivreur) {
     if (error) throw new Error(error.message);
     _userCache.delete(docId);
 }
-async function updateUserField(docId, field, value) {
-    const updates = { [field]: value, updated_at: ts() };
-    const { error } = await supabase.from(COL_USERS).update(updates).eq('id', docId);
-    if (error) throw new Error(error.message);
-    _userCache.delete(docId);
-}
 async function setLivreurAvailability(docId, isAvailable) {
     const updates = {
         is_available: !!isAvailable,
@@ -478,7 +476,7 @@ async function setLivreurAvailability(docId, isAvailable) {
         console.error(`❌ DB Error setLivreurAvailability: ${fullError.message}`);
         throw new Error(fullError.message);
     }
-    if (updated) console.log(`[DB] Updated row count: ${updated.length}`);
+    if (updated) console.log(`[DB] Nombre de lignes mises à jour : ${updated.length}`);
 
     _userCache.delete(docId);
 }
@@ -505,7 +503,7 @@ async function updateLivreurPosition(docId, input) {
         console.error(`❌ DB Error updateLivreurPosition: ${fullError.message}`);
         throw new Error(fullError.message);
     }
-    if (updated) console.log(`[DB] Updated row count: ${updated.length} for ID: ${docId}`);
+    if (updated) console.log(`[DB] Nombre de lignes mises à jour : ${updated.length} pour l'ID : ${docId}`);
 
     _userCache.delete(docId);
 }
@@ -586,7 +584,7 @@ async function createOrder(orderData) {
         // Vérifie si l'utilisateur existe quand même (erreur de doublon OK)
         const existingUser = await getUser(userId);
         if (!existingUser) {
-            console.error(`❌ Cannot create order: user ${userId} doesn't exist and registration failed`);
+            console.error(`❌ Impossible de créer la commande : l'utilisateur ${userId} n'existe pas et l'enregistrement a échoué`);
             return { order: null, error: new Error("Utilisateur introuvable") };
         }
     }
@@ -614,7 +612,7 @@ async function createOrder(orderData) {
     if (secureOrderData.first_name) secureOrderData.first_name = encryption.encrypt(secureOrderData.first_name);
     if (secureOrderData.username) secureOrderData.username = encryption.encrypt(secureOrderData.username);
 
-    const insertData = {
+    const { data, error } = await supabase.from(COL_ORDERS).insert([{
         id: id,
         ...secureOrderData,
         scheduled_at: orderData.scheduled_at || null,
@@ -622,18 +620,7 @@ async function createOrder(orderData) {
         created_at: ts(),
         notif_1h_sent: false,
         notif_30m_sent: false
-    };
-
-    let { data, error } = await supabase.from(COL_ORDERS).insert([insertData]).select();
-
-    // Fallback if 'district' column is missing from DB (common issue during migration)
-    if (error && error.message && error.message.includes("'district'")) {
-        console.warn("⚠️ Column 'district' missing in bot_orders. Retrying without it...");
-        delete insertData.district;
-        const retry = await supabase.from(COL_ORDERS).insert([insertData]).select();
-        data = retry.data;
-        error = retry.error;
-    }
+    }]).select();
 
     // Sauvegarde de l'adresse utilisateur pour l'historique
     if (orderData.address && !error) {
@@ -641,11 +628,11 @@ async function createOrder(orderData) {
     }
 
     if (error) {
-        console.error("Error createOrder", error);
+        console.error("Erreur createOrder", error);
         return { order: null, error };
     }
 
-    await incrementStat('total_orders');
+    incrementStat('total_orders').catch(() => {});
     return { order: data[0], error: null };
 }
 
@@ -951,7 +938,7 @@ async function getOrder(orderId) {
 }
 
 async function getAvailableOrders(city = null) {
-    let q = supabase.from(COL_ORDERS).select('*').eq('status', 'pending');
+    let q = supabase.from(COL_ORDERS).select('*').in('status', ['pending', 'validated', 'supplier_ready', 'supplier_pending']);
     if (city && city !== 'all' && city !== 'non défini') {
         q = q.eq('city', city.toLowerCase());
     }
@@ -959,23 +946,27 @@ async function getAvailableOrders(city = null) {
     return (data || []).map(decryptOrder);
 }
 
-async function getAllOrders(limit = 1000) {
-    // We use a simple select + manual join to avoid "Missing relationship" warnings in Supabase
-    // when the Foreign Key isn't explicitly set in the schema cache.
-    const { data: rawOrders, error } = await supabase.from(COL_ORDERS)
-        .select('*')
+async function getAllOrders(limit = 1000, statusFilter = null) {
+    let q = supabase.from(COL_ORDERS).select('*');
+    
+    if (statusFilter) {
+        if (Array.isArray(statusFilter)) q = q.in('status', statusFilter);
+        else q = q.eq('status', statusFilter);
+    }
+
+    const { data: rawOrders, error } = await q
         .order('created_at', { ascending: false })
         .abortSignal(AbortSignal.timeout(DB_TIMEOUT))
         .limit(limit);
     
     if (error || !rawOrders) {
-        console.warn(`[DB-Orders] Fetch failed: ${error?.message || 'No data'}`);
+        console.warn(`[DB-Orders] Échec de la récupération : ${error?.message || 'Pas de données'}`);
         return [];
     }
 
     const orders = rawOrders.map(decryptOrder);
     
-    // Fetch associated users status to get is_approved
+    // Récupérer le statut des utilisateurs associés pour obtenir is_approved
     const userIds = [...new Set(orders.map(o => o.user_id).filter(id => id))];
     if (userIds.length > 0) {
         const { data: userData } = await supabase.from(COL_USERS)
@@ -999,7 +990,7 @@ async function getAllOrders(limit = 1000) {
 async function searchOrders(query) {
     if (!query) return [];
     
-    // Manual search + manual join
+    // Recherche manuelle + jointure manuelle
     const { data: rawOrders } = await supabase.from(COL_ORDERS)
         .select('*')
         .or(`id.ilike.%${query}%,username.ilike.%${query}%,first_name.ilike.%${query}%,items.ilike.%${query}%`)
@@ -1050,7 +1041,7 @@ async function getUser(docId) {
     const rawData = data && data.length > 0 ? data[0] : null;
 
     if (rawData) {
-        _userCache.set(docId, { data: rawData, expire: Date.now() + 300000 }); // 5 minutes cache
+        _userCache.set(docId, { data: rawData, expire: Date.now() + 300000 }); // cache de 5 minutes
         return decryptUser(rawData);
     }
     return null;
@@ -1068,14 +1059,12 @@ async function getActiveUserCount(platform = null) {
     const { count } = await q.abortSignal(AbortSignal.timeout(DB_TIMEOUT));
     return count || 0;
 }
-async function getRecentUsers(limit = 100, offset = 0) {
-    let q = supabase.from(COL_USERS).select('*')
+async function getRecentUsers(limit = 100) {
+    const { data } = await supabase.from(COL_USERS).select('*')
         .eq('is_blocked', false)
-        .not('is_approved', 'eq', false)
+        .not('is_approved', 'eq', false) // inclut true ET null (rétrocompatibilité)
         .order('last_active', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-    const { data, error } = await q;
+        .limit(limit);
     const users = (data || []).map(decryptUser);
     
     const seenId = new Set();
@@ -1110,11 +1099,11 @@ async function getBlockedUsers(limit = 1000) {
     return (data || []).map(decryptUser);
 }
 async function searchUsers(query, tab = 'active') {
-    // Exact match by ID first (snappy)
+    // Correspondance exacte par ID en priorité
     if (query && (query.startsWith('telegram_') || query.startsWith('whatsapp_') || !isNaN(query.replace('@', '')))) {
         let idToSearch = query;
         if (!query.includes('_') && !query.includes('@')) {
-            // Try both default prefixes if it's just a number
+            // Essayer les deux préfixes par défaut s'il s'agit d'un numéro seul
             const { data: exact } = await supabase.from(COL_USERS).select('*')
                 .or(`id.eq.telegram_${query},id.eq.whatsapp_${query},platform_id.eq.${query}`)
                 .limit(5);
@@ -1141,9 +1130,25 @@ async function searchUsers(query, tab = 'active') {
         }
     }
 
+    const dedupResults = (raw) => {
+        const seen = new Set();
+        return raw.filter(u => {
+            if (!u.id) return true;
+            // Dedup WA par numéro (ignorer le suffixe lid/whatsapp)
+            if (String(u.id).startsWith('whatsapp_')) {
+                const num = String(u.id).split('_')[1]?.split('@')[0];
+                if (num && seen.has('wa_' + num)) return false;
+                if (num) seen.add('wa_' + num);
+            } else if (u.platform_id && u.platform === 'telegram') {
+                if (seen.has('tg_' + u.platform_id)) return false;
+                seen.add('tg_' + u.platform_id);
+            }
+            return true;
+        });
+    };
+
     if (!query) {
-        // FAST PATH: If no query, just return latest active users of the requested tab
-        // Use a smaller limit for performance, as only the first few are shown in the bot
+        // CHEMIN RAPIDE : Si aucune requête, retourner les derniers utilisateurs actifs du filtre demandé
         let baseQuery = supabase.from(COL_USERS).select('*').order('last_active', { ascending: false }).limit(100);
         
         if (tab === 'pending') baseQuery = baseQuery.eq('is_approved', false).eq('is_blocked', false);
@@ -1152,45 +1157,22 @@ async function searchUsers(query, tab = 'active') {
         
         const { data: fastData } = await baseQuery;
         const results = (fastData || []).map(decryptUser);
-        
-        // Dedup WhatsApp accounts by number
-        const seen = new Set();
-        return results.filter(u => {
-            const num = String(u.id).split('_')[1]?.split('@')[0];
-            if (num && seen.has(num)) return false;
-            if (num) seen.add(num);
-            return true;
-        });
+        return dedupResults(results);
     }
 
-    // SEARCH PATH: Fetch a smaller batch and filter in memory (for encrypted names)
-    // Reduce batch to 250 for better CPU performance on Railway and faster response
-    const { data, error } = await supabase.from(COL_USERS).select('*').order('last_active', { ascending: false }).limit(250);
-    if (error) {
-        console.error('[DB-SEARCH-ERR]', error.message);
-        return [];
-    }
-    const decrypted = (data || []).map(decryptUser);
+    const qToken = query.toLowerCase().trim();
+    let baseSearch = supabase.from(COL_USERS).select('*');
+    if (tab === 'pending') baseSearch = baseSearch.eq('is_approved', false).eq('is_blocked', false);
+    else if (tab === 'blocked') baseSearch = baseSearch.eq('is_blocked', true);
+    else baseSearch = baseSearch.eq('is_approved', true).eq('is_blocked', false);
 
-    // Apply tab filter on decrypted list
-    let filtered = decrypted.filter(u => {
-        if (tab === 'pending') return u.is_approved === false && u.is_blocked === false;
-        if (tab === 'blocked') return u.is_blocked === true;
-        return u.is_approved !== false && u.is_blocked === false;
-    });
+    const { data: searchResults } = await baseSearch
+        .or(`id.ilike.%${qToken}%,platform_id.ilike.%${qToken}%,first_name_hash.ilike.%${qToken}%,username_hash.ilike.%${qToken}%`)
+        .order('last_active', { ascending: false })
+        .limit(100);
 
-    // Process search query on the already tab-filtered list
-    const q = query.toLowerCase();
-    const finalResults = filtered.filter(u => {
-        const uid = String(u.id || '').toLowerCase();
-        const uname = String(u.username || '').toLowerCase();
-        const fname = String(u.first_name || '').toLowerCase();
-        const pid = String(u.platform_id || '').toLowerCase();
-
-        return uid.includes(q) || uname.includes(q) || fname.includes(q) || pid.includes(q);
-    });
-
-    return finalResults.slice(0, 50);
+    const decrypted = (searchResults || []).map(decryptUser);
+    return dedupResults(decrypted);
 }
 
 async function getPendingUsers() {
@@ -1226,10 +1208,10 @@ async function searchLivreurs(query) {
 
 async function getDetailedLivreurActivity(livreurId) {
     if (!livreurId) return [];
-    // Ensure format matches livreur_id in orders (e.g. telegram_123)
+    // S'assurer que le format correspond à livreur_id dans les commandes (ex: telegram_123)
     const docId = (livreurId.includes('_') || livreurId.startsWith('t_')) ? livreurId : `telegram_${livreurId}`;
 
-    // We try both formats just in case some orders have the raw ID
+    // Nous essayons les deux formats au cas où certaines commandes auraient l'ID brut
     const rawId = livreurId.replace('telegram_', '');
 
     const { data } = await supabase.from(COL_ORDERS)
@@ -1270,15 +1252,15 @@ async function getUserAnalytics(userId) {
         catch (e) { return o; }
     });
     
-    // Addresses
+    // Adresses
     const addressesArray = decrypted.map(o => o.address).filter(Boolean);
     const addresses = [...new Set(addressesArray)];
     
-    // Total & Average
+    // Total & Moyenne
     const totalSpent = decrypted.reduce((sum, o) => sum + (parseFloat(o.total_price) || 0), 0);
     const avgBasket = totalSpent / decrypted.length;
 
-    // Temporal Analysis (by hour)
+    // Analyse temporelle (par heure)
     const hourCounts = {};
     decrypted.forEach(o => {
         if (!o.created_at) return;
@@ -1410,24 +1392,25 @@ async function getStatsOverview(force = false) {
     const totalLivreurs = totalLivreursRes.count || 0;
     const totalOrdersCount = ordersCountRes.count || 0;
 
-    // Get CA from Sum of delivered orders (fallback to global stats if too many/error)
-    let calculatedCA = 0;
-    try {
-        const { data: caData, error: caError } = await supabase.from(COL_ORDERS)
-            .select('total_price')
-            .eq('status', 'delivered')
-            .order('created_at', { ascending: false })
-            .abortSignal(AbortSignal.timeout(DB_TIMEOUT))
-            .limit(2000); 
+    // Obtenir le CA depuis les statistiques globales (beaucoup plus rapide que de sommer les 2000 dernières commandes)
+    // Nous ne recalculons à partir des commandes que si cela est explicitement forcé ou si les statistiques globales sont manquantes
+    let totalCA = parseFloat(stats.total_ca || stats.global?.total_ca || 0);
 
-        if (!caError && caData) {
-            calculatedCA = caData.reduce((acc, curr) => acc + (parseFloat(curr.total_price) || 0), 0);
+    if (force || !totalCA) {
+        try {
+            const { data: caData, error: caError } = await supabase.from(COL_ORDERS)
+                .select('total_price')
+                .eq('status', 'delivered')
+                .abortSignal(AbortSignal.timeout(DB_TIMEOUT))
+                .limit(4000); 
+
+            if (!caError && caData) {
+                totalCA = caData.reduce((acc, curr) => acc + (parseFloat(curr.total_price) || 0), 0);
+            }
+        } catch (e) {
+            console.error('[STATS] Erreur de calcul du CA :', e.message);
         }
-    } catch (e) {
-        console.error('[STATS] CA calculation error:', e.message);
     }
-
-    const totalCA = calculatedCA || parseFloat(stats.total_ca || stats.global?.total_ca || 0);
 
     const result = {
         totalUsers: total,
@@ -1451,7 +1434,7 @@ async function getStatsOverview(force = false) {
 }
 
 /**
- * Find city/postal from Gouv API (French alternative to Google Maps API)
+ * Trouver la ville/code postal depuis l'API Gouv (alternative française à Google Maps API)
  */
 async function searchAddressGouv(address, postalCode = null) {
     if (!address && !postalCode) return null;
@@ -1477,11 +1460,11 @@ async function searchAddressGouv(address, postalCode = null) {
 }
 
 /**
- * Extract city, postal code AND district from a free-text address string.
+ * Extraire la ville, le code postal ET le quartier d'une chaîne d'adresse en texte libre.
  */
 function extractCityFromAddress(address) {
     if (!address) return { city: 'INCONNUE', postalCode: '', district: '' };
-    // Cleanup address string
+    // Nettoyage de la chaîne d'adresse
     const cleanAddr = address.replace(/[\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
     
     const cpMatch = cleanAddr.match(/\b(\d{5})\b/);
@@ -1500,11 +1483,11 @@ function extractCityFromAddress(address) {
         };
         const region = depNames[dep] || 'HORS-IDF';
 
-        // Extract city from string around CP
+        // Extraire la ville de la chaîne autour du Code Postal
         const parts = cleanAddr.split(postalCode);
         let candidate = '';
         
-        // Priority: After CP
+        // Priorité : Après le CP
         if (parts[1]) {
             const afterWords = parts[1].trim().split(/[\s,.;]+/).filter(w => w.length > 1 && !blacklist.includes(w.toUpperCase()));
             if (afterWords.length > 0) {
@@ -1517,7 +1500,7 @@ function extractCityFromAddress(address) {
                 candidate = potentialCity.join(' ');
             }
         }
-        // Fallback: Before CP
+        // Fallback : Avant le CP
         if (!candidate && parts[0]) {
             const beforeWords = parts[0].trim().split(/[\s,.;]+/).filter(w => w.length > 1 && !blacklist.includes(w.toUpperCase()));
             if (beforeWords.length > 0) {
@@ -1534,7 +1517,7 @@ function extractCityFromAddress(address) {
 
         city = (candidate || region).toUpperCase().replace(/[^A-ZÁÀÂÄÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝŸ\s-]/g, '').trim();
         
-        // Specific grouping for Paris
+        // Regroupement spécifique pour Paris
         if (dep === '75') {
             const arr = (cp >= 75001 && cp <= 75020) ? (cp - 75000) : 0;
             city = 'PARIS'; 
@@ -1550,34 +1533,25 @@ function extractCityFromAddress(address) {
 }
 
 /**
- * Scrape all orders with missing geo info and fix them.
+ * Parcourir toutes les commandes avec des infos géo manquantes et les corriger.
  */
 async function backfillOrderCities(limit = 500) {
-    let { data: orders, error: selectError } = await supabase.from(COL_ORDERS)
+    const { data: orders } = await supabase.from(COL_ORDERS)
         .select('id, address, city, postal_code, district')
         .or('city.is.null,city.ilike.INCONNUE,city.eq.,city.ilike.LE,city.ilike.LA,city.ilike.DE,city.ilike.SAINT,city.ilike.INFOS,city.ilike.SAINTS,city.ilike.FRANCE,postal_code.is.null')
         .limit(limit);
 
-    // Fallback if district is missing
-    if (selectError && selectError.message && selectError.message.includes("'district'")) {
-        const retry = await supabase.from(COL_ORDERS)
-            .select('id, address, city, postal_code')
-            .or('city.is.null,city.ilike.INCONNUE,city.eq.,city.ilike.LE,city.ilike.LA,city.ilike.DE,city.ilike.SAINT,city.ilike.INFOS,city.ilike.SAINTS,city.ilike.FRANCE,postal_code.is.null')
-            .limit(limit);
-        orders = retry.data;
-    }
-
-    console.log(`[BACKFILL] Found ${orders ? orders.length : 0} orders to fix.`);
+    console.log(`[BACKFILL] ${orders ? orders.length : 0} commandes à corriger trouvées.`);
     if (!orders || orders.length === 0) return { updated: 0, failed: 0 };
     let updated = 0, failed = 0;
     for (const order of orders) {
         const fullAddress = encryption.decrypt(order.address);
         if (!fullAddress) { failed++; continue; }
         
-        // 1. Regex logic (fast, IDF focused)
+        // 1. Logique Regex (rapide, ciblé IDF)
         let { city, postalCode, district } = extractCityFromAddress(fullAddress);
 
-        // 2. Data Gouv API logic (Logic requested by user, for unknown/LE/etc)
+        // 2. Logique API Data Gouv (Logique demandée par l'utilisateur, pour unknown/LE/etc)
         const isBadCity = !city || ['INCONNUE', 'LE', 'LA', 'DE', 'SAINT', 'FRANCE', 'INFOS', 'SAINTS'].includes(city.toUpperCase());
         if (isBadCity || !postalCode) {
             const gouvMatch = await searchAddressGouv(fullAddress, postalCode || order.postal_code);
@@ -1596,7 +1570,7 @@ async function backfillOrderCities(limit = 500) {
         const { error } = await supabase.from(COL_ORDERS).update(updateData).eq('id', order.id);
         if (error) failed++; else updated++;
     }
-    // Invalidate analytics cache
+    // Invalider le cache des analyses
     _statsCache.analytics = null;
     _statsCache.lastAnalytics = 0;
     return { updated, failed };
@@ -1608,24 +1582,24 @@ async function getOrderAnalytics() {
         return _statsCache.analytics;
     }
 
-    // Auto-backfill silently (max 100 unknown orders per analytics call)
+    // Remplissage automatique silencieux (max 100 commandes inconnues par appel d'analyse)
     try {
         const { data: unknownCount } = await supabase.from(COL_ORDERS)
             .select('id', { count: 'exact', head: true })
             .or('city.is.null,city.eq.INCONNUE,city.eq.,city.eq.LE,city.eq.LA,city.eq.DE,city.eq.SAINT,city.eq.INFOS,city.eq.SAINTS,city.eq.FRANCE');
         if (unknownCount && unknownCount > 0) {
-            backfillOrderCities(100).catch(() => {}); // fire & forget
+            backfillOrderCities(100).catch(() => {}); // lancer et oublier
         }
     } catch(_) {}
 
-    // Fetch last 2000 orders for historical analysis (optimized fields selection for performance)
+    // Récupérer les 1000 dernières commandes pour l'analyse historique (réduit de 2000 pour plus de rapidité)
     const { data: ordersSnap, error } = await supabase.from(COL_ORDERS)
-        .select('id, created_at, delivered_at, total_price, status, product_name, is_priority, city, postal_code, address, livreur_name, user_id, platform, first_name, username, quantity')
+        .select('id, created_at, delivered_at, total_price, status, city, postal_code, platform, quantity') // Partial select: only what's needed for main charts
         .order('created_at', { ascending: false })
-        .limit(2000);
+        .limit(1000);
 
     if (error) {
-        console.error('[DB-ANALYTICS-CRITICAL] Query failed:', error);
+        console.error('[DB-ANALYTICS-CRITICAL] La requête a échoué :', error);
         throw error;
     }
 
@@ -1651,7 +1625,7 @@ async function getOrderAnalytics() {
             byProduct: {},// product -> count
             avgHour: 0    // most common hour
         },
-        // Funnel: all client actions
+        // Entonnoir : toutes les actions du client
         funnel: {
             catalogViews: 0,      // orders started (any status)
             cartAdds: 0,          // orders that reached cart
@@ -1673,14 +1647,14 @@ async function getOrderAnalytics() {
         const isDelivered = status === 'delivered';
         const isCancelled = status === 'cancelled' || status === 'annulée' || status === 'annulee';
 
-        // --- FUNNEL (all orders) ---
+        // --- ENTONNOIR (toutes les commandes) ---
         analytics.funnel.catalogViews++;
         if (price > 0 || order.product_name) analytics.funnel.cartAdds++;
         if (price > 0) analytics.funnel.checkouts++;
         if (isDelivered) analytics.funnel.completed++;
         if (isCancelled) analytics.funnel.cancelled++;
 
-        // --- PRIORITY: detect via is_priority column ---
+        // --- PRIORITÉ : détection via la colonne is_priority ---
         const isPriorityOrder = order.is_priority === true;
 
         if (isPriorityOrder) {
@@ -1700,12 +1674,12 @@ async function getOrderAnalytics() {
             analytics.priority.byProduct[prodP] = (analytics.priority.byProduct[prodP] || 0) + 1;
         }
 
-        if (!isDelivered) return; // Only count CA from delivered orders
+        if (!isDelivered) return; // Ne compter le CA que pour les commandes livrées
 
         analytics.totalCA += price;
         analytics.totalOrders++;
 
-        // Platform
+        // Plateforme
         const platform = order.platform || (String(order.user_id).startsWith('whatsapp') ? 'whatsapp' : 'telegram');
         if (!analytics.byPlatform[platform]) {
             analytics.byPlatform[platform] = { ca: 0, count: 0, avgBasket: 0, products: {} };
@@ -1713,7 +1687,7 @@ async function getOrderAnalytics() {
         analytics.byPlatform[platform].ca += price;
         analytics.byPlatform[platform].count++;
 
-        // Delivery time
+        // Temps de livraison
         let deliveryMinutes = null;
         if (order.created_at && order.delivered_at) {
             const createdMs = new Date(order.created_at).getTime();
@@ -1731,13 +1705,13 @@ async function getOrderAnalytics() {
         analytics.byUser[clientName].count++;
         analytics.byUser[clientName].ca += price;
 
-        // Driver
+        // Livreur
         const driverName = order.livreur_name || 'Inconnu';
         if (!analytics.byDriver[driverName]) analytics.byDriver[driverName] = { count: 0, ca: 0 };
         analytics.byDriver[driverName].count++;
         analytics.byDriver[driverName].ca += price;
 
-        // Product
+        // Produit
         const productName = (order.product_name || 'Inconnu').split('\n')[0].split('(x')[0].trim();
         if (!analytics.byProduct[productName]) analytics.byProduct[productName] = { qty: 0, ca: 0 };
         analytics.byProduct[productName].qty += (parseInt(order.quantity) || 1);
@@ -1745,7 +1719,7 @@ async function getOrderAnalytics() {
         if (!analytics.byPlatform[platform].products[productName]) analytics.byPlatform[platform].products[productName] = 0;
         analytics.byPlatform[platform].products[productName] += (parseInt(order.quantity) || 1);
 
-        // Time buckets
+        // Tranches horaires
         if (order.created_at) {
             const date = new Date(order.created_at);
             const hour = date.getHours().toString().padStart(2, '0') + 'h';
@@ -1777,7 +1751,7 @@ async function getOrderAnalytics() {
             analytics.byPlatform[platform].byYear[yr] = (analytics.byPlatform[platform].byYear[yr] || 0) + price;
         }
 
-        // --- GEO: City + District + Detail ---
+        // --- GÉO : Ville + Quartier + Détail ---
         let city = (order.city || '').split(',')[0].trim().toUpperCase();
         let postalCode = order.postal_code || '';
         let district = order.district || '';
@@ -1797,13 +1771,13 @@ async function getOrderAnalytics() {
         // Fallback for district if still missing
         if (!district) district = postalCode || 'INCONNUE';
 
-        // byCity
+        // parVille
         if (!analytics.byCity[city]) analytics.byCity[city] = { ca: 0, count: 0, priority: 0 };
         analytics.byCity[city].ca += price;
         analytics.byCity[city].count++;
         if (isPriorityOrder) analytics.byCity[city].priority++;
 
-        // byDistrict (postal-code level)
+        // parQuartier (niveau code postal)
         if (district || postalCode) {
             const distKey = district || postalCode;
             if (!analytics.byDistrict[distKey]) analytics.byDistrict[distKey] = { ca: 0, count: 0, city, products: {}, priority: 0 };
@@ -1814,11 +1788,11 @@ async function getOrderAnalytics() {
             analytics.byDistrict[distKey].products[productName] = (analytics.byDistrict[distKey].products[productName] || 0) + (parseInt(order.quantity) || 1);
         }
 
-        // Top products per city
+        // Top produits par ville
         if (!analytics.byCityProducts[city]) analytics.byCityProducts[city] = {};
         analytics.byCityProducts[city][productName] = (analytics.byCityProducts[city][productName] || 0) + (parseInt(order.quantity) || 1);
 
-        // City Detail (for drill-down)
+        // Détail par ville (pour exploration)
         if (!analytics.byCityDetail[city]) analytics.byCityDetail[city] = { products: {}, hours: {}, platforms: {}, priority: 0, districts: {} };
         analytics.byCityDetail[city].products[productName] = (analytics.byCityDetail[city].products[productName] || 0) + (parseInt(order.quantity) || 1);
         if (order.created_at) {
@@ -1846,7 +1820,7 @@ async function getOrderAnalytics() {
         });
     });
 
-    // Build city table (with top-3 products per city)
+    // Construction du tableau des villes (avec le top 3 des produits par ville)
     analytics.cityTable = Object.entries(analytics.byCity)
         .map(([city, data]) => {
             const products = analytics.byCityProducts[city] || {};
@@ -1877,16 +1851,16 @@ async function getOrderAnalytics() {
         })
         .sort((a, b) => b.ca - a.ca);
 
-    // Funnel rates
+    // Taux de l'entonnoir
     analytics.funnel.abandonRate = analytics.funnel.cartAdds > 0
         ? Math.round(((analytics.funnel.cartAdds - analytics.funnel.completed) / analytics.funnel.cartAdds) * 100)
         : 0;
 
-    // Most requested priority hour
+    // Heure prioritaire la plus demandée
     const priorityHours = Object.entries(analytics.priority.byHour).sort((a,b) => b[1]-a[1]);
     analytics.priority.avgHour = priorityHours[0] ? priorityHours[0][0] : 'N/A';
 
-    // Finalize averages
+    // Finalisation des moyennes
     analytics.avgBasket = analytics.totalOrders > 0 ? parseFloat((analytics.totalCA / analytics.totalOrders).toFixed(2)) : 0;
     Object.keys(analytics.byPlatform).forEach(p => {
         const plat = analytics.byPlatform[p];
@@ -1894,7 +1868,7 @@ async function getOrderAnalytics() {
     });
     analytics.avgDeliveryTime = deliveryCount > 0 ? Math.round(totalDeliveryMinutes / deliveryCount) : 0;
 
-    // Save last 20 raw delivered for searching
+    // Sauvegarder les 20 dernières livraisons brutes pour la recherche
     analytics.rawDelivered = (ordersSnap || [])
         .filter(o => (o.status || '').toLowerCase() === 'delivered')
         .slice(0, 20)
@@ -1918,25 +1892,27 @@ async function getAllLivreurs() {
 // --- Settings ---
 const SETTINGS_DEFAULTS = {
     bot_name: 'LE PLUG IDF',
-    welcome_message: 'Bienvenue sur LE PLUG IDF ! 🚀 Votre service de livraison express.',
+    welcome_message: 'Bienvenue sur LE PLUG IDF Bot ! 🚀 Votre service de livraison express.',
     welcome_message_enabled: true,
     admin_password: 'admin',
-    admin_telegram_id: '1183134641',
-    list_moderators: '',
+    admin_telegram_id: '',
+    moderator_telegram_id: '',
     dashboard_url: process.env.DASHBOARD_URL || '',
-    private_contact_url: 'https://t.me/leplugidfx',
-    private_contact_wa_url: 'https://wa.me/33752981714',
+    private_contact_url: 'https://t.me/plugnation_admin',
+    private_contact_wa_url: 'https://wa.me/33775018414',
     channel_url: 'https://t.me/+aZMQZI-hATsyMThk', 
     bot_description: 'Service de livraison express LE PLUG IDF',
-    bot_short_description: 'LE PLUG IDF - Livraison express',
+    bot_short_description: 'LE PLUG IDF - Livraison express Île-de-France',
     payment_modes: '💵 Espèces',
     maintenance_mode: false,
-    maintenance_message: '🔧 <b>La boutique est actuellement en maintenance.</b>\n\nNous revenons bientôt !\n\nContactez l\'admin : @admin_boutique',
-    maintenance_contact: 'https://t.me/admin_boutique',
+    maintenance_message: '🔧 <b>Le bot est actuellement en maintenance.</b>\n\nNous revenons bientôt !\n\nContactez l\'admin : @plugnation_admin',
+    maintenance_contact: 'https://t.me/plugnation_admin',
     accent_color: '#4CAF50',
     languages: 'fr',
     payment_modes_config: '[]',
     force_subscribe: false,
+    enable_help_menu: true,
+    enable_stats: true,
     force_subscribe_channel_id: '',
     default_wa_name: 'Utilisateur',
     enable_abandoned_cart_notifications: false,
@@ -1951,14 +1927,14 @@ const SETTINGS_DEFAULTS = {
     enable_fidelity: true,
     enable_referral: true,
     enable_help_menu: true,
-    dashboard_title: 'LE PLUG IDF',
-    bot_description: 'Bienvenus 🙏 chez le Plug IDF , spécialisé en produit haut de gamme Douce🥦🍫🌿 & Dur 💊❄️🐴🍾💎🥤\n\n📍 Nos Meet-Up 📍\nParis Sud - Paris Nord - 94\n\n🚗Livraison 🚗\nParis 🗼 - Île-de-France 🇫🇷 et Départements voisin ⛺️ sous certaines conditions 📁\nWhathsApp 📱 : 0758917153 / @Lepdg_idf\n\nFaire /start ou /catalogue',
-    bot_short_description: 'Service de livraison express LE PLUG IDF',
+    dashboard_title: 'TIM LE MEILLEUR IDF Admin',
     label_catalog_title: '',
     priority_delivery_enabled: false,
     priority_delivery_price: 15,
     auto_approve_new: false,
     notify_on_approval: false,
+    list_admins: [],
+    livreur_telegram_id: '',
     
     // UI Labels & Icons
     label_catalog: 'Catalogue',
@@ -1973,7 +1949,7 @@ const SETTINGS_DEFAULTS = {
     ui_icon_livreur: '🚴',
     label_admin_bot: 'Admin Bot',
     ui_icon_admin: '⚙️',
-    label_admin_web: 'LE PLUG IDF',
+    label_admin_web: 'Dashboard Web',
     ui_icon_web: '🌐',
     label_channel: 'Canal',
     ui_icon_channel: '📢',
@@ -2022,14 +1998,13 @@ const SETTINGS_DEFAULTS = {
     fidelity_min_spend: 50,
     fidelity_bonus_thresholds: '5,10,15,20',
     fidelity_bonus_amount: 10,
-    dashboard_title: 'LE PLUG IDF',
+    dashboard_title: 'Dashboard',
     show_broadcasts_btn: true,
     show_reviews_btn: true,
     priority_delivery_enabled: false,
     priority_delivery_price: 15,
     auto_approve_new: false, // Default to false, to be toggled by admin
     notify_on_approval: false, // Whether to send the confirmation message
-    custom_links: '[]',
     
     // Buttons
     btn_back_menu: '◀️ Retour Menu',
@@ -2078,7 +2053,7 @@ async function getAppSettings() {
 
     _settingsPromise = (async () => {
         try {
-            const { data, error } = await supabase.from(COL_SETTINGS).select('*').eq('id', 'default').abortSignal(AbortSignal.timeout(15000)).limit(1);
+            const { data, error } = await supabase.from(COL_SETTINGS).select('*').eq('id', 'default').abortSignal(AbortSignal.timeout(5000)).limit(1);
             
             if (error) {
                 console.error('⚠️ [DB] getAppSettings error:', error.message);
@@ -2134,7 +2109,7 @@ async function getAppSettings() {
             }
 
             _settingsCache = settings;
-            _settingsExpire = Date.now() + 30000; // Cache valid for 30 seconds for better responsiveness
+            _settingsExpire = Date.now() + 30000; // Cache valid for 30s for better reactivity
             return settings;
         } finally {
             _settingsPromise = null;
@@ -2155,17 +2130,16 @@ async function updateAppSettings(settings) {
 
     const { error } = await supabase.from(COL_SETTINGS).update(filtered).eq('id', 'default');
     if (!error) {
-        // Clear cache and promise to force refresh
+        // Vider le cache et la promesse pour forcer le rafraîchissement
         _settingsCache = null;
         _settingsExpire = 0;
         _settingsPromise = null;
-        console.log("♻️ [CACHE] Settings cache invalidated after update");
     }
     if (error) {
-        console.error('❌ Error updating settings:', error.message, '— Trying partial save...');
-        // Fallback: save only core fields that always exist
+        console.error('❌ Erreur lors de la mise à jour des paramètres :', error.message, '— Essai d\'une sauvegarde partielle...');
+        // Repli : sauvegarder uniquement les champs de base qui existent toujours
         const coreFields = [
-            'bot_name', 'welcome_message', 'admin_password', 'admin_telegram_id',
+            'bot_name', 'welcome_message', 'admin_password', 'admin_telegram_id', 'moderator_telegram_id', 'livreur_telegram_id',
             'dashboard_url', 'payment_modes', 'maintenance_mode', 'maintenance_message',
             'private_contact_url', 'private_contact_wa_url', 'channel_url', 'accent_color', 'bot_description',
             'label_contact', 'label_channel', 'ui_icon_contact', 'ui_icon_channel',
@@ -2173,9 +2147,8 @@ async function updateAppSettings(settings) {
             'label_catalog', 'ui_icon_catalog', 'label_my_orders', 'ui_icon_orders',
             'payment_modes_config', 'msg_order_received_admin', 'msg_order_confirmed_client',
             'force_subscribe', 'force_subscribe_channel_id', 'priority_delivery_enabled', 'priority_delivery_price',
-            'auto_approve_new', 'notify_on_approval', 'custom_links',
-            'label_profile', 'ui_icon_profile', 'label_livreur_space', 'ui_icon_livreur',
-            'label_admin_bot', 'ui_icon_admin', 'label_admin_web', 'ui_icon_web'
+            'auto_approve_new', 'notify_on_approval', 'list_admins', 'enable_telegram', 'enable_whatsapp', 
+            'enable_marketplace', 'label_livreur_space', 'msg_auto_timer'
         ];
         const coreFiltered = {};
         for (const key of coreFields) {
@@ -2185,28 +2158,14 @@ async function updateAppSettings(settings) {
         if (e2) {
             throw new Error(`Erreur sauvegarde: ${error.message}`);
         }
-        console.warn('⚠️ Partial settings save done. Some columns may need SQL migration.');
+        console.warn('⚠️ Sauvegarde partielle des paramètres effectuée. Certaines colonnes pourraient nécessiter une migration SQL.');
     }
-    _settingsCache = null; // Invalidate cache
-    _settingsExpire = 0;
-    _settingsPromise = null;
+    _settingsCache = null; // Invalider le cache
 }
 
 // --- Products ---
 let _productsCache = null;
 let _productsExpire = 0;
-
-async function getProduct(id) {
-    // Check main products
-    const { data: p } = await supabase.from(COL_PRODUCTS).select('*').eq('id', id).single();
-    if (p) return p;
-    
-    // Check marketplace products
-    const { data: mp } = await supabase.from(COL_SUPPLIER_PRODUCTS).select('*').eq('id', id).single();
-    if (mp) return mp;
-    
-    return null;
-}
 
 async function getProducts(includeInactive = false) {
     if (_productsCache && Date.now() < _productsExpire && !includeInactive) {
@@ -2256,26 +2215,12 @@ async function saveProduct(data) {
     return id;
 }
 
-async function updateProduct(id, updates) {
-    const { error } = await supabase
-        .from(COL_PRODUCTS)
-        .update({ ...updates, updated_at: ts() })
-        .eq('id', id);
-
-    if (error) {
-        console.error(`Error updateProduct (${id})`, error);
-        throw new Error(`Erreur Supabase: ${error.message}`);
-    }
-    _productsCache = null;
-    return true;
-}
-
 async function deleteProduct(id) {
     await supabase.from(COL_PRODUCTS).delete().eq('id', id);
     _productsCache = null; // Invalidate cache
 }
 
-// --- Broadcasts ---
+// --- Diffusions ---
 async function saveBroadcast(data) {
     const id = `${Date.now()}`;
     const now = ts();
@@ -2414,15 +2359,11 @@ async function updateBroadcast(broadcastId, data) {
     }
 }
 async function claimBroadcast(broadcastId) {
-    const rescueTime = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    
-    // On peut claim une diffusion si elle est 'pending' 
-    // OU si elle est 'in_progress' mais "stuck" (plus de 10 mins d'inactivité)
     const { data, error } = await supabase
         .from(COL_BROADCASTS)
-        .update({ status: 'in_progress', updated_at: ts() })
+        .update({ status: 'in_progress' })
         .eq('id', broadcastId)
-        .or(`status.eq.pending,and(status.eq.in_progress,created_at.lt.${rescueTime})`)
+        .or('status.eq.pending,status.eq.stuck')
         .select();
 
     if (error || !data || data.length === 0) {
@@ -2494,7 +2435,7 @@ async function uploadMediaFromUrl(url, fileName) {
         const buffer = Buffer.from(response.data);
         return uploadMediaBuffer(buffer, fileName, response.headers['content-type'] || 'image/jpeg');
     } catch (e) {
-        console.error("❌ uploadMediaFromUrl failed:", e.message);
+        console.error("❌ Échec de uploadMediaFromUrl :", e.message);
         throw e;
     }
 }
@@ -2511,7 +2452,7 @@ async function uploadMediaBuffer(buffer, fileName, contentType = 'image/jpeg') {
         const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
         return publicUrlData.publicUrl;
     } catch (e) {
-        console.error("❌ uploadMediaBuffer failed:", e.message);
+        console.error("❌ Échec de uploadMediaBuffer :", e.message);
         throw e;
     }
 }
@@ -2531,7 +2472,7 @@ async function deleteOrder(id) {
 async function useSupabaseAuthState(sessionId) {
     const TABLE = 'bot_state';
     const NAMESPACE = 'wa_session';
-    // Dynamic import for ESM-only baileys (Node 22+)
+    // Import dynamique pour baileys ESM-uniquement (Node 22+)
     const baileysMod = await import('@whiskeysockets/baileys');
     const BufferJSON = baileysMod.BufferJSON;
     const initAuthCreds = baileysMod.initAuthCreds;
@@ -2554,7 +2495,6 @@ async function useSupabaseAuthState(sessionId) {
                 return JSON.parse(JSON.stringify(data.value), BufferJSON.reviver);
             }
 
-            // [🛡️ REDONDANCE] Si la session principale est vide, on cherche dans le backup
             const backupId = `wa_backup::${sessionId}::${key}`;
             const { data: backupData } = await supabase
                 .from(TABLE)
@@ -2605,7 +2545,7 @@ async function useSupabaseAuthState(sessionId) {
             }, { onConflict: 'id' });
 
         } catch (e) {
-            console.error(`[WA-DB] writeData error for key ${key}:`, e.message);
+            console.error(`[WA-DB] Erreur writeData pour la clé ${key} :`, e.message);
         }
     }
 
@@ -2617,23 +2557,20 @@ async function useSupabaseAuthState(sessionId) {
 
     async function clearAllData() {
         try {
-            // Supprimer toutes les entrées de cette session (Primaire ET Backup)
-            // On utilise un filtre large sur l'ID pour être sûr de tout nettoyer
-            const { error } = await supabase.from(TABLE).delete()
+            // Supprimer toutes les entrées de cette session (principales + backup)
+            await supabase.from(TABLE).delete()
                 .or(`namespace.eq.${NAMESPACE},namespace.eq.wa_backup`)
-                .filter('id', 'like', `%::${sessionId}::%`);
-            
-            if (error) throw error;
-            console.log(`[WA-DB] Session ${sessionId} (and backup) cleared from Supabase`);
+                .like('id', `%::${sessionId}::%`);
+            console.log(`[WA-DB] Session ${sessionId} (et backup) effacée de Supabase`);
         } catch (e) {
-            console.error('[WA-DB] clearAllData error:', e.message);
+            console.error('[WA-DB] Erreur clearAllData :', e.message);
         }
     }
 
     // Chargement initial des credentials depuis Supabase
     const credsRaw = await readData('creds');
     const creds = credsRaw || initAuthCreds();
-    console.log(`[WA-DB] Auth state loaded from Supabase bot_state (session: ${sessionId}, fresh: ${!credsRaw})`);
+    console.log(`[WA-DB] État d'authentification chargé depuis Supabase bot_state (session : ${sessionId}, nouveau : ${!credsRaw})`);
 
     return {
         state: {
@@ -2667,11 +2604,10 @@ async function useSupabaseAuthState(sessionId) {
         },
         saveCreds: () => writeData('creds', creds),
         clearSession: clearAllData,
-        // LOCK SYSTEM 
+        // SYSTÈME DE VERROU (LOCK) 
         claimLock: (ownerId) => claimLock(`wa_lock::${sessionId}`, ownerId),
         checkLock: () => checkLock(`wa_lock::${sessionId}`),
 
-        // [🛡️ UI PERSISTENCE] Persistance des boutons pour le nettoyage des messages après restart
         getMetadata: async (key) => {
             const data = await readData(`meta-${key}`);
             return data;
@@ -2707,7 +2643,7 @@ async function claimLock(lockId, ownerId) {
         if (error) return false;
         return true;
     } catch (e) { 
-        console.error(`[LOCK-ERR] ${lockId}:`, e.message);
+        console.error(`[LOCK-ERR] ${lockId} :`, e.message);
         return false; 
     }
 }
@@ -2777,7 +2713,7 @@ async function saveSupplier(supplier) {
 }
 
 async function deleteSupplier(id) {
-    // Also unlink products
+    // Délier également les produits
     await supabase.from(COL_PRODUCTS).update({ supplier_id: null }).eq('supplier_id', id);
     await supabase.from(COL_SUPPLIERS).delete().eq('id', id);
 }
@@ -2918,7 +2854,6 @@ async function createMarketplaceOrder(orderData) {
         id,
         supplier_id: orderData.supplier_id,
         admin_id: orderData.admin_id || 'admin',
-        products: JSON.stringify(orderData.products), // [{product_id, name, price, qty}]
         total_price: orderData.total_price || 0,
         address: orderData.address || '',
         delivery_type: orderData.delivery_type || 'delivery',
@@ -2990,17 +2925,17 @@ async function updateUser(userId, data) {
 }
 
 async function recalculateAllUserStats() {
-    console.log("[DB] Starting global user stats recalculation...");
+    console.log("[DB] Démarrage du recalcul global des statistiques utilisateurs...");
     
-    // 1. Fetch all users
+    // 1. Récupérer tous les utilisateurs
     const { data: users, error: userError } = await supabase.from(COL_USERS).select('id, order_count');
     if (userError) throw userError;
 
-    // 2. Fetch all orders (we only need user_id)
+    // 2. Récupérer toutes les commandes (nous n'avons besoin que du user_id)
     const { data: orders, error: orderError } = await supabase.from(COL_ORDERS).select('user_id');
     if (orderError) throw orderError;
 
-    // 3. Count orders per user
+    // 3. Compter les commandes par utilisateur
     const orderCounts = {};
     orders.forEach(o => {
         if (o.user_id) {
@@ -3008,18 +2943,75 @@ async function recalculateAllUserStats() {
         }
     });
 
-    // 4. Update each user IF their count is wrong
+    // 4. Mettre à jour chaque utilisateur SI son compteur est incorrect
     let updated = 0;
     for (const user of users) {
+        const uDec = decryptUser(user);
         const actualCount = orderCounts[user.id] || 0;
-        if ((user.order_count || 0) !== actualCount) {
-             await supabase.from(COL_USERS).update({ order_count: actualCount }).eq('id', user.id);
+        const fname = uDec ? (uDec.first_name || 'Utilisateur') : 'Utilisateur';
+        const uname = uDec ? (uDec.username || '') : '';
+        
+        if ((user.order_count || 0) !== actualCount || !user.first_name_hash) {
+             await supabase.from(COL_USERS).update({ 
+                 order_count: actualCount,
+                 first_name_hash: String(fname).toLowerCase().trim(),
+                 username_hash: String(uname).toLowerCase().trim()
+             }).eq('id', user.id);
              updated++;
              _userCache.delete(user.id);
         }
     }
 
-    console.log(`[DB] Recalculation complete. Updated ${updated} users.`);
+    console.log(`[DB] Recalcul complet. ${updated} utilisateurs mis à jour.`);
+    
+    // 5. Fusion de déduplication (Nettoyage)
+    console.log("[DB] Démarrage de la fusion des utilisateurs en double...");
+    const { data: allUsers } = await supabase.from(COL_USERS).select('*');
+    if (allUsers) {
+        const waSeen = new Map(); // phone -> user
+        const tgSeen = new Map(); // platform_id -> user
+        let merged = 0;
+        
+        for (const user of allUsers) {
+            let key = null;
+            let group = null;
+            
+            if (user.platform === 'whatsapp' || String(user.id).startsWith('whatsapp_')) {
+                key = String(user.id).split('_')[1]?.split('@')[0] || String(user.platform_id)?.split('@')[0];
+                group = waSeen;
+            } else if (user.platform === 'telegram') {
+                key = user.platform_id;
+                group = tgSeen;
+            }
+            
+            if (key && group.has(key)) {
+                const primary = group.get(key);
+                console.log(`[MERGE] Merging duplicate ${user.id} into ${primary.id}`);
+                
+                const newOrders = (primary.order_count || 0) + (user.order_count || 0);
+                const newPoints = (primary.fidelity_points || 0) + (user.fidelity_points || 0);
+                const newWallet = (parseFloat(primary.wallet_balance) || 0) + (parseFloat(user.wallet_balance) || 0);
+                
+                await supabase.from(COL_USERS).update({
+                    order_count: newOrders,
+                    fidelity_points: newPoints,
+                    wallet_balance: newWallet,
+                    is_approved: primary.is_approved || user.is_approved,
+                    is_admin: primary.is_admin || user.is_admin,
+                    is_livreur: primary.is_livreur || user.is_livreur,
+                }).eq('id', primary.id);
+                
+                await supabase.from(COL_ORDERS).update({ user_id: primary.id }).eq('user_id', user.id);
+                await supabase.from(COL_REFERRALS).update({ referrer_id: primary.id }).eq('referrer_id', user.id);
+                await supabase.from(COL_USERS).delete().eq('id', user.id);
+                merged++;
+            } else if (key) {
+                group.set(key, user);
+            }
+        }
+        console.log(`[DB] Nettoyage de ${merged} doublons terminé.`);
+        return { updated, merged };
+    }
     return { updated };
 }
 
@@ -3031,10 +3023,9 @@ module.exports = {
     generateReferralCode, getReferralLeaderboard, incrementOrderCount,
     setLivreurStatus, updateLivreurPosition, getActiveLivreursCount,
     createOrder, updateOrderStatus, assignOrderLivreur, getOrder, deleteOrder, getAvailableOrders, getAllOrders,
-    saveBroadcast, updateBroadcast, deleteBroadcast, getBroadcastHistory, getPendingBroadcasts, recordPollVote, recordPollFreeResponse, incrementStat, incrementDailyStat,
+    saveBroadcast, updateBroadcast, deleteBroadcast, claimBroadcast, getBroadcastHistory, getPendingBroadcasts, recordPollVote, recordPollFreeResponse, incrementStat, incrementDailyStat,
     getGlobalStats, getDailyStats, getStatsOverview, getAppSettings, updateAppSettings, getClientActiveOrders,
-    updateUserField, updateProduct,
-    getProducts, getProduct, saveProduct, deleteProduct, setLivreurAvailability,
+    getProducts, saveProduct, deleteProduct, setLivreurAvailability,
     getAvailableLivreurs, getAllLivreurs, getOrderAnalytics, backfillOrderCities, saveUserLocation, addMessageToTrack, getLastMenuId, getTrackedMessages, getLivreurOrders, getLivreurHistory, getOrdersByUser, getDetailedLivreurActivity, saveFeedback, setPendingFeedback, getAndClearPendingFeedback, nukeDatabase,
     saveReview, getReviews, getPublicReviews, deleteReview, uploadMediaFromUrl, uploadMediaBuffer,
     incrementChatCount, saveClientReply, logHelpRequest,
@@ -3053,87 +3044,5 @@ module.exports = {
     claimLock, checkLock,
     backfillOrderCities,
     getUserAnalytics,
-    recalculateAllUserStats,
-    claimBroadcast,
-    // New Moderator/Support & CSV features
-    logSupportMessage, getSupportLogs, bulkRegisterUsers
+    recalculateAllUserStats
 };
-
-async function logSupportMessage(userId, staffId, message, type = 'text', direction = 'out', staffRole = 'admin') {
-    const payload = {
-        user_id: userId,
-        staff_id: String(staffId),
-        message: message,
-        type: type,
-        direction: direction,
-        staff_role: staffRole,
-        created_at: new Date().toISOString()
-    };
-
-    const { error } = await supabase.from(COL_SUPPORT_LOGS).insert([payload]);
-    
-    if (error) {
-        console.error(`[LOG-DB-ERR] Insert failed for ${userId}:`, error.message, error.code, error.details);
-    } else {
-        console.log(`[LOG-DB-SUCCESS] Message logged for ${userId} (${direction})`);
-    }
-}
-
-async function getSupportLogs() {
-    console.log(`[getSupportLogs] START - querying table "${COL_SUPPORT_LOGS}"`);
-    try {
-        const result = await supabase.from(COL_SUPPORT_LOGS)
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(300);
-        
-        console.log(`[getSupportLogs] Raw result keys:`, Object.keys(result));
-        console.log(`[getSupportLogs] error:`, result.error ? JSON.stringify(result.error) : 'null');
-        console.log(`[getSupportLogs] data type:`, typeof result.data, 'isArray:', Array.isArray(result.data), 'length:', result.data?.length);
-        console.log(`[getSupportLogs] status:`, result.status, 'statusText:', result.statusText);
-        
-        if (result.error) {
-            console.error(`[getSupportLogs] SUPABASE ERROR:`, result.error.message, result.error.code, result.error.hint, result.error.details);
-            return [];
-        }
-        
-        if (!result.data || result.data.length === 0) {
-            console.warn(`[getSupportLogs] Table exists but returned 0 rows`);
-            return [];
-        }
-        
-        console.log(`[getSupportLogs] SUCCESS: ${result.data.length} rows. First:`, JSON.stringify(result.data[0]));
-        return result.data;
-    } catch (e) {
-        console.error(`[getSupportLogs] EXCEPTION:`, e.message, e.stack?.split('\\n').slice(0,3));
-        return [];
-    }
-}
-
-async function bulkRegisterUsers(users) {
-    if (!Array.isArray(users) || users.length === 0) return { success: false, message: 'No users provided' };
-    
-    let count = 0;
-    for (const u of users) {
-        try {
-            // Transform CSV data back to registerUser format
-            const platform = u.platform === 'whatsapp' ? 'whatsapp' : 'telegram';
-            const platformId = String(u.platform_id);
-            const first_name = u.first_name || 'Importé';
-            const last_name = u.last_name || '';
-            const username = u.username || '';
-            
-            await registerUser({ 
-                id: platformId, 
-                first_name, 
-                last_name, 
-                username 
-            }, platform);
-            count++;
-        } catch (e) {
-            console.error(`[DB-IMPORT-ERR] ID ${u.platform_id}:`, e.message);
-        }
-    }
-    
-    return { success: true, count };
-}

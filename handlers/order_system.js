@@ -1,6 +1,6 @@
 const { Markup } = require('telegraf');
 const {
-    getProducts, getProduct, updateProduct, createOrder, getUser, setLivreurStatus,
+    getProducts, createOrder, getUser, setLivreurStatus,
     updateLivreurPosition, getAvailableOrders, updateOrderStatus,
     getOrder, getAppSettings, setLivreurAvailability,
     incrementOrderCount, getAllLivreurs, _userCache,
@@ -29,8 +29,8 @@ const awaitingReviewText = createPersistentMap('awaitingReview');
 const userLastActivity = new Map();
 
 /**
- * Helper to extract a single valid media URL from product data.
- * Handles JSON arrays, plain strings, and trims whitespace.
+ * Assistant pour extraire une seule URL média valide à partir des données du produit.
+ * Gère les tableaux JSON, les chaînes simples et supprime les espaces inutiles en début/fin.
  */
 function getMediaUrl(product) {
     const all = getAllMediaUrls(product);
@@ -50,35 +50,30 @@ function getAllMediaUrls(product) {
         if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.substring(1, raw.length - 1);
     }
 
-    const videoExtRegex = /\.(mp4|mov|avi|wmv|webm|mkv|m4v)(\?.*)?$/i;
-
-    // Handle JSON array format: [{"url":"...", "type":"photo"}, ...]
+    // Gérer le format de tableau JSON : [{"url":"...", "type":"photo"}, ...]
     if (typeof raw === 'string' && raw.startsWith('[') && raw.endsWith(']')) {
         try {
             const arr = JSON.parse(raw);
             if (Array.isArray(arr) && arr.length > 0) {
                 return arr.map(item => {
-                    const url = typeof item === 'string' ? item : (item.url || item.image_url);
-                    const type = typeof item === 'object' && item.type ? item.type : (url && url.match(videoExtRegex) ? 'video' : 'photo');
-                    return { url, type };
+                    if (typeof item === 'string') return { url: item, type: 'photo' };
+                    return { url: item.url || item.image_url, type: item.type || 'photo' };
                 }).filter(m => m.url);
             }
         } catch (e) { }
     }
 
-    // Handle single JSON object format
+    // Gérer le format d'objet JSON unique
     if (typeof raw === 'string' && raw.startsWith('{') && raw.endsWith('}')) {
         try {
             const obj = JSON.parse(raw);
-            const url = obj.url || obj.image_url;
-            const type = obj.type || (url && url.match(videoExtRegex) ? 'video' : 'photo');
-            return url ? [{ url, type }] : [];
+            const u = obj.url || obj.image_url;
+            return u ? [{ url: u, type: obj.type || 'photo' }] : [];
         } catch (e) {}
     }
 
-    // Plain URL string
-    const type = raw.match(videoExtRegex) ? 'video' : 'photo';
-    return raw ? [{ url: raw, type }] : [];
+    // Chaîne d'URL simple
+    return raw ? [{ url: raw, type: 'photo' }] : [];
 }
 
 async function initOrderState() {
@@ -116,17 +111,17 @@ function setupOrderSystem(bot) {
                     `👏 <b>Félicitations !</b>\n\nUn client a laissé une note pour votre livraison :\n\n${stars}\n"<i>${text}</i>"`
                 );
             }
-        } catch (e) { console.error("Error notifying feedback:", e); }
+        } catch (e) { console.error("Erreur lors de la notification du feedback :", e); }
     }
 
     // ========== CATALOGUE & COMMANDE ==========
 
     async function displayCatalog(ctx) {
-        const [products, settings] = await Promise.all([
+        const [products, user] = await Promise.all([
             getProducts(),
-            ctx.state?.settings ? Promise.resolve(ctx.state.settings) : getAppSettings()
+            ctx.state?.user || getUser(`${ctx.platform}_${ctx.from.id}`)
         ]);
-        const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);
+        const settings = ctx.state?.settings; // Déjà chargé par le Dispatcher
         if (!products || products.length === 0) {
             return safeEdit(ctx, t(user, 'msg_catalog_empty', settings.msg_catalog_empty || '📭 Le catalogue est actuellement vide.'), Markup.inlineKeyboard([[Markup.button.callback(settings.btn_back_generic || '◀️ Retour', 'main_menu')]]));
         }
@@ -149,11 +144,6 @@ function setupOrderSystem(bot) {
         await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
     }
 
-    const formatPrice = (val) => {
-        const num = parseFloat(val);
-        return Number.isFinite(num) ? num.toFixed(2) : "0.00";
-    };
-
     bot.action('view_catalog', async (ctx) => {
         await ctx.answerCbQuery();
         // Nettoyer les états marketplace pour éviter l'interception des messages
@@ -168,64 +158,46 @@ function setupOrderSystem(bot) {
         // Nettoyer les états marketplace pour éviter l'interception des messages
         clearAllAwaitingMaps(ctx.from.id);
         const productId = ctx.match[1];
-        const product = await getProduct(productId);
-        const products = await getProducts(); // Liste locale pour les logs et bundles
-        const settings = (ctx.state?.settings || await getAppSettings());
+        
+        // --- OPTIMISATION : Parallélisation des appels DB ---
+        const [products, user] = await Promise.all([
+            getProducts(),
+            ctx.state?.user || getUser(`${ctx.platform}_${ctx.from.id}`)
+        ]);
+        
+        const product = products.find(p => String(p.id) === String(productId));
+        const settings = ctx.state?.settings; // Déjà chargé par le Dispatcher
 
         if (!product) return safeEdit(ctx, settings.msg_product_not_found || '❌ Produit non trouvé.', [Markup.button.callback(settings.btn_back_menu || '◀️ Retour Menu', 'view_catalog')]);
 
         let promoText = "";
         if (product.is_bundle) {
-            const config = product.bundle_config || { trigger_qty: 1, offered_qty: 1 };
-            const trigger = config.trigger_qty || 1;
-            const offered = config.offered_qty || 1;
-            promoText = `\n🎁 <b>OFFRE : ${trigger} ACHETÉS = ${offered} OFFERT(S) !</b>\n<i>(Inclus automatiquement dans votre commande)</i>\n`;
+            promoText = `\n🎁 <b>OFFRE BUNDLE : 1 ACHETÉ = 1 OFFERT !</b>\n<i>(Le produit offert est inclus automatiquement dans votre commande)</i>\n`;
         } else if (product.promo) {
             promoText = `\n🔥 <b>PROMO : ${product.promo}</b>\n`;
         }
 
-        // Affichage des tarifs dégressifs (GRILLE DE TARIFS PREMIUM)
+        // NOUVEAU: Affichage des prix dégressifs
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
-            const multiplier = parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1;
-            const unitSuffix = (product.unit && product.unit.toLowerCase() !== 'unité') ? (product.unit) : 'unités';
-            
-            const tiers = product.discounts_config.map(d => {
-                const total = parseFloat(d.total || d.total_price || 0);
-                const weight = d.qty * multiplier;
-                return `<code>${weight}${unitSuffix}:${total.toFixed(0)}€</code>`;
+            promoText += `\n📉 <b>PRIX DÉGRESSIFS :</b>\n`;
+            product.discounts_config.forEach(d => {
+                const discountTotal = d.total || d.total_price;
+                promoText += `• ${d.qty} unités : <b>${discountTotal}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
             });
-            
-            promoText += `\n📊 <b>GRILLE DE TARIFS :</b>\n` + tiers.join('  |  ') + `\n`;
         }
 
-        const rawVal = String(product.unit_value || '1');
-        const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
-        const unit = product.unit || '';
-        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : 'g';
-
-        const user = ctx.state?.user || await getUser(`${ctx.platform}_${ctx.from.id}`);
         let text = `🌟 <b>${esc(product.name)}</b> 🌟\n\n` +
             t(user, 'label_unit_price', '💰 Prix Unitaire :') + ` <b>${product.price}€</b>\n` +
             (promoText ? `${promoText}\n` : "") +
             (product.description ? `\n<i>${product.description}</i>\n` : "") +
-            `\n💎 <b>Combien de sachets voulez-vous ?</b>\n\n` +
-            `💡 <i>Cliquez sur le chiffre qui correspond au nombre de sachets que vous voulez.</i>\n` +
-            `<i>(Exemple : si vous cliquez sur <b>1</b>, vous recevrez 1 sachet de ${multiplier}${unitDisplay})</i>`;
+            `\n💎 ` + t(user, 'label_choose_qty', '<b>Choisissez votre quantité :</b>');
 
-        const multipliers = [1, 2, 3, 4, 5, 10];
+        const qtyOptions = [1, 2, 3, 4, 5, 10];
         const qtyRows = [];
-
-        for (let i = 0; i < multipliers.length; i += 2) {
-            const m1 = multipliers[i];
-            const q1 = m1 * multiplier;
-            const label1 = `${m1}`;
-            const row = [Markup.button.callback(label1, `qty_${productId}_${q1}`)];
-            
-            if (i + 1 < multipliers.length) {
-                const m2 = multipliers[i+1];
-                const q2 = m2 * multiplier;
-                const label2 = `${m2}`;
-                row.push(Markup.button.callback(label2, `qty_${productId}_${q2}`));
+        for (let i = 0; i < qtyOptions.length; i += 2) {
+            const row = [Markup.button.callback(`${qtyOptions[i]}`, `qty_${productId}_${qtyOptions[i]}`)];
+            if (i + 1 < qtyOptions.length) {
+                row.push(Markup.button.callback(`${qtyOptions[i+1]}`, `qty_${productId}_${qtyOptions[i+1]}`));
             }
             qtyRows.push(row);
         }
@@ -237,14 +209,13 @@ function setupOrderSystem(bot) {
         clearActiveMediaGroup(userId);
         
         const allMedia = getAllMediaUrls(product);
-        const firstMedia = allMedia.length > 0 ? allMedia[0] : null;
-        const isVideo = firstMedia && firstMedia.type === 'video';
-        const mediaUrl = firstMedia ? firstMedia.url : null;
+        const firstPhoto = allMedia.length > 0 ? allMedia[0].url : null;
+        const isVideo = allMedia.length > 0 && allMedia[0].type === 'video';
 
         await safeEdit(ctx, text, {
             ...keyboard,
-            photo: isVideo ? null : mediaUrl,
-            video: isVideo ? mediaUrl : null
+            photo: isVideo ? null : firstPhoto,
+            video: isVideo ? firstPhoto : null
         });
     });
 
@@ -253,8 +224,8 @@ function setupOrderSystem(bot) {
         const userId = `${ctx.platform}_${ctx.from.id}`;
         const productId = ctx.match[1];
         const qty = parseInt(ctx.match[2]);
-        const product = await getProduct(productId);
-        const products = await getProducts(); // Local list for logging/bundles
+        const products = await getProducts();
+        const product = products.find(p => String(p.id) === String(productId));
         const settings = (ctx.state?.settings || await getAppSettings());
 
         if (!product) {
@@ -263,41 +234,14 @@ function setupOrderSystem(bot) {
         }
 
         // Calcul du prix avec gestion des paliers dégressifs
-        const unitValue = Math.max(0.001, parseFloat(String(product.unit_value || '1').replace(',', '.')) || 1);
-        const basePrice = Math.max(0, parseFloat(product.price) || 0);
-        
-        // La quantité "interne" pour les réductions est basée sur le nombre de "packs" (unit_value)
-        const packsSelected = (Number.isFinite(qty) && Number.isFinite(unitValue)) ? (qty / unitValue) : 0; 
-        
-        let totalPriceValue = basePrice * packsSelected;
-
-        if (product.has_discounts && product.discounts_config && Array.isArray(product.discounts_config)) {
-            const sortedTiers = [...product.discounts_config]
-                .filter(d => d && Number.isFinite(parseFloat(d.qty)) && parseFloat(d.qty) > 0)
-                .sort((a, b) => b.qty - a.qty);
-            
-            let remaining = packsSelected;
-            let total = 0;
-
-            for (const tier of sortedTiers) {
-                const tierQty = parseFloat(tier.qty);
-                const tierPrice = parseFloat(tier.total || tier.total_price || 0);
-                
-                if (Number.isFinite(tierQty) && tierQty > 0 && Number.isFinite(tierPrice) && remaining >= tierQty) {
-                    const numTiers = Math.floor(remaining / tierQty);
-                    total += numTiers * tierPrice;
-                    remaining -= numTiers * tierQty;
-                }
+        let totalPriceValue = product.price * qty;
+        if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
+            const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
+            const bestDiscount = sortedDiscounts.find(d => qty >= d.qty);
+            if (bestDiscount) {
+                totalPriceValue = bestDiscount.total_price + (qty - bestDiscount.qty) * product.price;
             }
-            total += Math.max(0, remaining) * basePrice;
-            totalPriceValue = total;
         }
-        
-        if (!Number.isFinite(totalPriceValue)) {
-            console.error(`❌ [NaN Fix] totalPriceValue is invalid for product ${productId}. basePrice=${basePrice}, packsSelected=${packsSelected}, qty=${qty}`);
-            totalPriceValue = 0;
-        }
-        
         const totalPrice = totalPriceValue.toFixed(2);
 
         let bundleText = "";
@@ -305,7 +249,7 @@ function setupOrderSystem(bot) {
             const config = product.bundle_config || { trigger_qty: 1, offered_qty: 1, offered_id: null };
             const trigger = config.trigger_qty || 1;
             const offered = config.offered_qty || 1;
-            const numGifts = Math.floor(packsSelected / trigger) * offered;
+            const numGifts = Math.floor(qty / trigger) * offered;
 
             if (numGifts > 0) {
                 if (config.offered_id) {
@@ -323,14 +267,11 @@ function setupOrderSystem(bot) {
             totalPrice,
             productName: product.name + bundleText,
             is_bundle: product.is_bundle,
-            supplier_id: product.supplier_id, // IMPORTANT pour la notification fournisseur
-            nSachets: (unitValue > 1) ? packsSelected : null,
-            productUnit: product.unit || 'g'
+            supplier_id: product.supplier_id // IMPORTANT pour la notification fournisseur
         });
 
-        if (unitValue === 1 && product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
-            const nSachets = Math.round(qty / unitValue) || 1;
-            return askUnitSelection(ctx, product, nSachets);
+        if (product.unit && product.unit.length > 0 && !(['unité', 'unite', 'piece', 'pce'].includes(product.unit.toLowerCase()))) {
+            return askUnit(ctx, product, qty);
         }
 
         await showAddToCartChoice(ctx, product, qty, totalPrice);
@@ -344,30 +285,14 @@ function setupOrderSystem(bot) {
         if (unitAmount) pending.chosen_unit_amount = unitAmount;
 
         const user = ctx.state?.user || await getUser(userId);
-        const rawVal = String(product.unit_value || '1');
-        const multiplier = parseFloat(rawVal.replace(',', '.')) || 1;
-        const unit = product.unit || '';
-        const unitDisplay = (unit && unit.toLowerCase() !== 'unité' && unit.toLowerCase() !== 'pieces') ? unit : '';
-        
-        let qtyLabel;
-        let sachetInfo = "";
-        if (multiplier > 1) {
-            const nSachets = qty / multiplier;
-            qtyLabel = `${qty}${unitDisplay}`;
-            sachetInfo = `\n📦 <b>Format : ${nSachets} sachet${nSachets > 1 ? 's' : ''} de ${multiplier}${unitDisplay}</b>`;
-        } else {
-            qtyLabel = `${qty}${unitDisplay || 'x'}`;
-        }
-
-        const text = t(user, 'msg_selection', '🛒 <b>Vous avez choisi : {qty} {name}</b>', { qty: qtyLabel, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + 
-            sachetInfo + '\n' +
-            t(user, 'label_price_total', '💰 Prix à payer :') + ` <b>${totalPrice}€</b>\n\n` +
-            t(user, 'msg_what_to_do', '<b>C\'est presque fini ! Votre produit est mis de côté.</b>\n\nQue voulez-vous faire maintenant ?');
+        const text = t(user, 'msg_selection', '🛒 <b>Sélection : {qty}x {name}</b>', { qty, name: product.name }) + (unitAmount ? ` (${unitAmount})` : '') + '\n' +
+            t(user, 'label_price_total', '💰 Prix :') + ` <b>${totalPrice}€</b>\n\n` +
+            t(user, 'msg_what_to_do', 'Que voulez-vous faire ?');
 
         const buttons = [
             [
-                Markup.button.callback(t(user, 'btn_add_to_cart', '🛒 Mettre dans mon panier'), 'add_to_cart'),
-                Markup.button.callback(t(user, 'btn_checkout_now', '💳 Paiement à la livraison'), 'checkout_now')
+                Markup.button.callback(t(user, 'btn_add_to_cart', '🛒 Ajouter au panier'), 'add_to_cart'),
+                Markup.button.callback(t(user, 'btn_checkout_now', '💳 Régler maintenant'), 'checkout_now')
             ],
             [
                 Markup.button.callback(t(user, 'btn_review', '⭐️ Avis / Comment'), 'leave_review'),
@@ -396,14 +321,14 @@ function setupOrderSystem(bot) {
         let cart = userCarts.get(userId) || [];
         cart.push(pending);
         userCarts.set(userId, cart);
-        userLastActivity.set(userId, Date.now()); // Update activity
+        userLastActivity.set(userId, Date.now()); // Mise à jour de l'activité
         pendingOrders.delete(userId);
 
         const products = await getProducts();
-        const text = t(user, 'msg_product_added', '✅ C\'est noté ! Produit ajouté au panier.') + '\n\n' + t(user, 'msg_cart_count', 'Votre panier contient <b>{count}</b> article(s).', { count: cart.length });
+        const text = t(user, 'msg_product_added', '✅ Produit ajouté !') + '\n\n' + t(user, 'msg_cart_count', 'Votre panier contient <b>{count}</b> article(s).', { count: cart.length });
         const buttons = [
-            [Markup.button.callback(t(user, 'btn_continue', '🛍️ Acheter autre chose'), 'view_catalog'), Markup.button.callback(t(user, 'btn_cart_view', '💳 Payer ma commande'), 'view_cart')],
-            [Markup.button.callback(t(user, 'btn_clear', settings.btn_clear_cart || '❌ Tout enlever'), 'clear_cart')]
+            [Markup.button.callback(t(user, 'btn_continue', '🛍️ Continuer'), 'view_catalog'), Markup.button.callback(t(user, 'btn_cart_view', '💳 Panier'), 'view_cart')],
+            [Markup.button.callback(t(user, 'btn_clear', settings.btn_clear_cart || '❌ Vider le panier'), 'clear_cart')]
         ];
         await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
     });
@@ -438,15 +363,13 @@ function setupOrderSystem(bot) {
         const buttons = [];
 
         cart.forEach((item, idx) => {
-            const price = parseFloat(item.totalPrice) || 0;
+            const price = parseFloat(item.totalPrice);
             total += price;
-            const unit = item.productUnit || 'g';
-            const qtyLabel = item.nSachets ? `(x${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''} - ${item.qty}${unit})` : `(x${item.qty}${unit})`;
-            summary += `${idx + 1}. ${item.productName} <b>${qtyLabel}</b>${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${formatPrice(price)}€</b>\n`;
+            summary += `${idx + 1}. ${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${price.toFixed(2)}€</b>\n`;
             // Bouton de suppression individuelle
             buttons.push([Markup.button.callback(`❌ ${t(user, 'btn_back', 'Retirer')} ${item.productName}`, `remove_item_${idx}`)]);
         });
-        summary += `\n💰 <b>` + t(user, 'label_total_price', 'TOTAL :') + ` ${formatPrice(total)}€</b>`;
+        summary += `\n💰 <b>` + t(user, 'label_total_price', 'TOTAL :') + ` ${total.toFixed(2)}€</b>`;
 
         buttons.push([Markup.button.callback(t(user, 'btn_checkout', '💳 Commander'), 'start_checkout'), Markup.button.callback(t(user, 'btn_add_more', '🛍️ Continuer'), 'view_catalog')]);
         buttons.push([Markup.button.callback(t(user, 'btn_clear_cart', '❌ Vider'), 'clear_cart'), Markup.button.callback(t(user, 'btn_back_menu', '◀️ Menu'), 'main_menu')]);
@@ -479,7 +402,7 @@ function setupOrderSystem(bot) {
         try {
             await displayCatalog(ctx);
         } catch (e) {
-            console.error('Error displaying catalog after clear:', e.message);
+            console.error('Erreur lors de l\'affichage du catalogue après effacement :', e.message);
             await safeEdit(ctx, settings.msg_cart_cleared || '✅ Panier vidé !', Markup.inlineKeyboard([[Markup.button.callback('🛍️ Voir le Catalogue', 'view_catalog')], [Markup.button.callback(settings.btn_back_quick_menu || '◀️ Menu', 'main_menu')]]));
         }
     });
@@ -496,7 +419,7 @@ function setupOrderSystem(bot) {
         const settings = ctx.state?.settings || await getAppSettings();
         if (cart.length === 0) return safeEdit(ctx, t(user, 'msg_cart_empty', settings.msg_cart_empty || "📭 Votre panier est vide."), Markup.inlineKeyboard([[Markup.button.callback(settings.btn_back_quick_menu || '◀️ Menu', 'main_menu')]]));
 
-        // settings already defined above
+        // Paramètres déjà définis plus haut
         const minOrder = settings.fidelity_min_spend || 50;
         let total = cart.reduce((acc, item) => acc + parseFloat(item.totalPrice), 0);
 
@@ -518,11 +441,7 @@ function setupOrderSystem(bot) {
         const user = ctx.state?.user || await getUser(userId);
         const settings = ctx.state?.settings || await getAppSettings();
         const cart = userCarts.get(userId) || [];
-        const itemsText = cart.map(item => {
-            const unit = item.productUnit || 'g';
-            const qtyLabel = item.nSachets ? `${item.nSachets} sachet${item.nSachets > 1 ? 's' : ''} (${item.qty}${unit})` : `${item.qty}${unit}`;
-            return `• ${item.productName} (x${qtyLabel})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`;
-        }).join('\n');
+        const itemsText = cart.map(item => `• ${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`).join('\n');
 
         // On persiste l'état d'attente d'adresse dans le Map global
         awaitingAddressDetails.set(userId, { step: 1, total: totalPrice });
@@ -606,10 +525,10 @@ function setupOrderSystem(bot) {
         return await askScheduling(ctx);
     });
 
-    async function askUnitSelection(ctx, product, qty) {
+    async function askUnit(ctx, product, qty) {
         const settings = (ctx.state?.settings || await getAppSettings());
         const unit = product.unit;
-        // Support comma and remove non-numeric chars for baseVal calculation
+        // Supporte la virgule et supprime les caractères non numériques pour le calcul de baseVal
         const cleanUnitVal = String(product.unit_value || '1').replace(',', '.');
         const baseVal = parseFloat(cleanUnitVal) || 1;
         const text = `⚖️ <b>Sélecton du format pour ${product.name}</b>\n\n` +
@@ -645,39 +564,17 @@ function setupOrderSystem(bot) {
 
         // Support comma and remove non-numeric chars for baseVal calculation
         const cleanUnitVal = String(product.unit_value || '1').replace(',', '.');
-        const baseVal = Math.max(0.001, parseFloat(cleanUnitVal) || 1);
-        const effectiveQty = (Number.isFinite(amount) && Number.isFinite(baseVal) && Number.isFinite(qty)) ? ((amount / baseVal) * qty) : 0;
+        const baseVal = parseFloat(cleanUnitVal) || 1;
+        const effectiveQty = (amount / baseVal) * qty;
 
-        const basePrice = Math.max(0, parseFloat(product.price) || 0);
-        let totalPriceValue = (basePrice / baseVal) * amount * qty;
-
-        if (product.has_discounts && product.discounts_config && Array.isArray(product.discounts_config)) {
-            const sortedTiers = [...product.discounts_config]
-                .filter(d => d && Number.isFinite(parseFloat(d.qty)) && parseFloat(d.qty) > 0)
-                .sort((a, b) => b.qty - a.qty);
-            
-            let remaining = effectiveQty;
-            let total = 0;
-
-            for (const tier of sortedTiers) {
-                const tierQty = parseFloat(tier.qty);
-                const tierPrice = parseFloat(tier.total || tier.total_price || 0);
-                
-                if (Number.isFinite(tierQty) && tierQty > 0 && Number.isFinite(tierPrice) && remaining >= tierQty) {
-                    const numTiers = Math.floor(remaining / tierQty);
-                    total += numTiers * tierPrice;
-                    remaining -= numTiers * tierQty;
-                }
+        let totalPriceValue = (product.price / baseVal) * amount * qty;
+        if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
+            const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
+            const bestDiscount = sortedDiscounts.find(d => effectiveQty >= d.qty);
+            if (bestDiscount) {
+                totalPriceValue = bestDiscount.total_price + (effectiveQty - bestDiscount.qty) * product.price;
             }
-            total += Math.max(0, remaining) * (basePrice / baseVal);
-            totalPriceValue = total;
         }
-
-        if (!Number.isFinite(totalPriceValue)) {
-            console.error(`❌ [NaN Fix-UnitSelect] totalPriceValue is invalid for product ${pId}. basePrice=${basePrice}, effectiveQty=${effectiveQty}`);
-            totalPriceValue = 0;
-        }
-
         let finalPrice = totalPriceValue.toFixed(2);
 
         let bundleText = "";
@@ -693,9 +590,7 @@ function setupOrderSystem(bot) {
             if (product.is_bundle) pending.is_bundle = true;
         }
 
-        const totalWeight = amount * qty;
-        const description = `${qty} sachet${qty > 1 ? 's' : ''} de ${amount}${product.unit}${bundleText}`;
-        await showAddToCartChoice(ctx, product, totalWeight, finalPrice, description);
+        await showAddToCartChoice(ctx, product, qty, finalPrice, `${amount}${product.unit}${bundleText}`);
     });
 
     async function promptAddress(ctx, product, qty, totalPrice) {
@@ -725,7 +620,7 @@ function setupOrderSystem(bot) {
         if (!ctx.message.text || ctx.message.text.startsWith('/')) return next();
         const addrState = awaitingAddressDetails.get(userId);
 
-        // Step 1: Address Validation -> Suite vers SCHEDULING
+        // Étape 1 : Validation de l'adresse -> Suite vers la PLANIFICATION
         if (addrState && addrState.step === 1) {
             const addr = ctx.message.text.trim();
             // Sur WhatsApp, un nombre (1, 2, 10, etc.) = raccourci menu numérique → laisser passer
@@ -775,7 +670,7 @@ function setupOrderSystem(bot) {
             return await askScheduling(ctx);
         }
 
-        // Step 2: Details Capture -> FINALISATION
+        // Étape 2 : Capture des détails -> FINALISATION
         if (addrState && addrState.step === 2 && !addrState.finalized) {
             const details = ctx.message.text.trim();
             addrState.address += ` (Infos : ${details})`;
@@ -989,7 +884,7 @@ function setupOrderSystem(bot) {
         const pending = pendingOrders.get(userId);
         if (!pending) return ctx.reply(settings.msg_session_expired || "Session expirée.");
 
-        pending.scheduled_at = `${date} ${hour.replace('h', ':')}`;
+        pending.scheduled_at = `${date} ${hour}`;
 
         const addrState = awaitingAddressDetails.get(userId);
         if (addrState) addrState.finalized = true;
@@ -1047,7 +942,8 @@ function setupOrderSystem(bot) {
                 text += t(user, 'label_loyalty', `🏆 Points :`) + ` <b>${user.loyalty_points || 0} pts</b>\n\n`;
             }
 
-            const activeOrders = orders.filter(o => o.status === 'pending' || o.status === 'taken');
+            const activeStatuses = ['pending', 'supplier_pending', 'supplier_accepted', 'supplier_ready', 'validated', 'taken'];
+            const activeOrders = orders.filter(o => activeStatuses.includes(o.status));
             const pastOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled').slice(0, 5);
             
             const buttons = [];
@@ -1055,8 +951,14 @@ function setupOrderSystem(bot) {
             if (activeOrders.length > 0) {
                 text += t(user, 'msg_active_orders', `<b>🏃 Commandes en cours :</b>`) + `\n`;
                 activeOrders.forEach((o) => {
-                    const statusIcon = o.status === 'taken' ? '🚚' : '⏳';
-                    const statusLabel = o.status === 'taken' ? t(user, 'label_taken', 'En livraison') : t(user, 'label_pending', 'En attente');
+                    let statusIcon = '⏳';
+                    if (o.status === 'taken') statusIcon = '🛵';
+                    else if (o.status === 'validated' || o.status === 'supplier_ready') statusIcon = '📦';
+                    
+                    let statusLabel = t(user, 'label_pending', 'En attente');
+                    if (o.status === 'taken') statusLabel = t(user, 'label_taken', 'En livraison');
+                    else if (o.status === 'validated' || o.status === 'supplier_ready') statusLabel = t(user, 'label_ready', 'Prêt / Validé');
+                    
                     text += `${statusIcon} #${o.id.slice(-5)} - ${o.product_name} (${statusLabel})\n`;
                     buttons.push([Markup.button.callback(t(user, 'btn_manage_order', `🔍 Gérer #${o.id.slice(-5)}`, { id: o.id.slice(-5) }), `view_order_${o.id}`)]);
                 });
@@ -1075,7 +977,7 @@ function setupOrderSystem(bot) {
             buttons.push([Markup.button.callback(t(user, 'btn_back_menu', settings.btn_back_quick_menu || '◀️ Menu'), 'main_menu')]);
             await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
         } catch (e) {
-            console.error('Error fetching user orders:', e);
+            console.error('Erreur lors de la récupération des commandes de l\'utilisateur :', e);
             await safeEdit(ctx, '❌ Error.', Markup.inlineKeyboard([[Markup.button.callback('◀️ Menu', 'main_menu')]]));
         }
     }
@@ -1124,15 +1026,11 @@ function setupOrderSystem(bot) {
                 { id: 'CASH', label: 'Espèces', icon: '💵' }
             ];
         }
-        
-        const hasAlternativePayment = pModes.some(m => m.id !== 'CASH');
-        const adminContact = settings.private_contact_url || 'https://t.me/admin';
 
         // Si 1 seul mode, bouton "Confirmer" direct
         if (pModes.length === 1) {
             const pm = pModes[0];
-            const label = pm.id === 'CASH' ? 'Payer à la livraison' : pm.label;
-            keyboard.push([Markup.button.callback(t(user, 'btn_confirm_order_pm', `✅ Confirmer ({label})`, { label: label }), `create_order_${pm.id}_${discount > 0 ? 'discount' : 'normal'}`)]);
+            keyboard.push([Markup.button.callback(t(user, 'btn_confirm_order_pm', `✅ Confirmer la commande ({label})`, { label: pm.label }), `create_order_${pm.id}_${discount > 0 ? 'discount' : 'normal'}`)]);
         } else {
             // Grouper les modes de paiement 2 par 2
             for (let i = 0; i < pModes.length; i += 2) {
@@ -1144,10 +1042,6 @@ function setupOrderSystem(bot) {
             }
         }
 
-        if (hasAlternativePayment) {
-            keyboard.push([Markup.button.url('💬 Parler à l\'admin (Paiement Crypto/Virement)', adminContact)]);
-        }
- 
         keyboard.push([Markup.button.callback('◀️ Modifier', 'back_to_scheduling'), Markup.button.callback(settings.btn_cancel_alt || '❌ Annuler', 'view_catalog')]);
 
         await safeEdit(ctx, text, {
@@ -1179,87 +1073,79 @@ function setupOrderSystem(bot) {
         const productList = cart.map(item => `${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`).join(', ');
         const totalQty = cart.reduce((acc, item) => acc + item.qty, 0);
         const discount = useDiscount ? (pending.possibleDiscount || 0) : 0;
-        const finalPrice = Math.max(0, parseFloat(pending.totalPrice || 0) - discount);
+        const finalPrice = parseFloat(pending.totalPrice) - discount;
 
         const isPriority = pending.is_priority;
         const priorityFee = isPriority ? (parseFloat(pending.priority_fee) || 0) : 0;
         let finalProductList = productList;
         if (isPriority) finalProductList += `\n🚀 Option Livraison Prioritaire (+${priorityFee.toFixed(2)}€)`;
 
-        // --- 2. DÉTERMINATION FOURNISSEUR (Avant création) ---
-        const allProducts = await getProducts().catch(() => []);
-        let orderSupplierId = null;
-        if (cart.length > 0) {
-            for (const item of cart) {
-                const p = allProducts.find(prod => String(prod.id) === String(item.productId));
-                if (p && p.supplier_id) { orderSupplierId = p.supplier_id; break; }
-            }
-        }
-
-        const orderData = {
-            user_id: userId,
-            username: ctx.from.username || 'Inconnu',
-            first_name: ctx.from.first_name || 'Inconnu',
-            product_name: finalProductList,
-            quantity: totalQty,
-            total_price: finalPrice,
-            payment_method: paymentMethod.toLowerCase(),
-            address: pending.address,
-            city: pending.city || '',
-            postal_code: pending.postal_code || '',
-            platform: ctx.platform,
-            status: orderSupplierId ? 'supplier_pending' : 'pending',
-            discount_applied: discount,
-            scheduled_at: pending.scheduled_at || null,
-        };
-
-        // --- 3. TRAVAIL PARALLÈLE (Vitesse Maximale) ---
-        console.log(`[Checkout] Exécution des tâches DB en parallèle...`);
-        const startTime = Date.now();
-
         try {
-            // DECREMENT STOCK
+            // DÉTERMINATION DU FOURNISSEUR (Avant création)
+            const allProducts = await getProducts().catch(() => []);
+            let orderSupplierId = null;
+            if (cart.length > 0) {
+                for (const item of cart) {
+                    const p = allProducts.find(prod => String(prod.id) === String(item.productId));
+                    if (p && p.supplier_id) { orderSupplierId = p.supplier_id; break; }
+                }
+            }
+
+            const orderData = {
+                user_id: userId,
+                username: ctx.from.username || 'Inconnu',
+                first_name: ctx.from.first_name || 'Inconnu',
+                product_name: finalProductList,
+                quantity: totalQty,
+                total_price: finalPrice,
+                payment_method: paymentMethod.toLowerCase(),
+                address: pending.address,
+                city: pending.city || '',
+                postal_code: pending.postal_code || '',
+                platform: ctx.platform,
+                status: orderSupplierId ? 'supplier_pending' : 'pending',
+                discount_applied: discount,
+                scheduled_at: pending.scheduled_at || null,
+            };
+
+            // --- 3. TRAVAIL PARALLÈLE (Vitesse Maximale) ---
+            console.log(`[Checkout] Exécution des tâches DB en parallèle...`);
+            const startTime = Date.now();
+
+            // DECREMENT STOCK en tâche de fond (on n'attend pas la fin pour confirmer au client)
             const { saveProduct } = require('../services/database');
-            const stockTasks = cart.map(async item => {
+            cart.forEach(item => {
                 const p = allProducts.find(prod => String(prod.id) === String(item.productId));
                 if (p && typeof p.stock === 'number' && p.stock > 0) {
                     const newStock = Math.max(0, p.stock - item.qty);
-                    // Si le stock tombe à 0, on peut désactiver si une option globale est cochée (ou par défaut ici pour satisfaire la demande)
                     const updates = { id: p.id, stock: newStock };
-                    if (newStock <= 0) {
-                        updates.is_active = false;
-                        console.log(`[STOCK] Produit ${p.name} épuisé, désactivation automatique.`);
-                    }
-                    return updateProduct(p.id, updates).catch(e => console.error(`[STOCK-ERR] ${p.id}:`, e.message));
+                    if (newStock <= 0) updates.is_active = false;
+                    saveProduct(updates).catch(e => console.error(`[STOCK-ERR] ${p.id}:`, e.message));
                 }
-                return Promise.resolve();
             });
 
-            const [createResult, dbSettings] = await Promise.all([
-                createOrder(orderData),
-                getAppSettings(),
-                ...stockTasks
+            // On lance la création et on récupère les settings de la session (déjà chargés)
+            const [createResult] = await Promise.all([
+                createOrder(orderData)
             ]);
 
             if (createResult.error) throw createResult.error;
             const order = createResult.order;
-            // On vérifie si c'est la première commande en utilisant l'ID officiel (possiblement fusionné)
-            const officialUserId = ctx.state.user?.id || userId;
-            const previousOrders = await getOrdersByUser(officialUserId);
-            // S'il n'y a qu'1 commande (celle qu'on vient de créer), c'est que c'est bien la première.
-            const isFirstOrder = (!previousOrders || previousOrders.length <= 1);
+            
+            // On utilise les settings déjà présents dans le contexte pour éviter un appel DB
+            const dbSettings = ctx.state.settings;
 
             console.log(`[Checkout] Tâches DB terminées en ${Date.now() - startTime}ms. Confirmation client...`);
 
             // --- 4. RÉPONSE CLIENT (Priorité #1) ---
             const user = ctx.state?.user || await getUser(userId);
-            const confirmedMsgBody = t(user, 'msg_order_registered', dbSettings.msg_order_confirmed_client || `✅ <b>Commande enregistrée !</b>\n\n📦 Produit : {product_list}\n📍 Adresse : {address}\n{delivery_time}\n💰 Total : {total}\n\n{success_icon} Recherche d'un livreur en cours...`);
+            const confirmedMsgBody = t(user, 'msg_order_registered', dbSettings.msg_order_confirmed_client || `✅ <b>Commande enregistrée !</b>\n\n📦 Produit : {product_list}\n📍 Adresse : {address}\n{delivery_time}\n💰 Total : <b>{total}€</b>\n\n{success_icon} Recherche d'un livreur en cours...`);
             const finalConfirmedMsg = confirmedMsgBody
-                .replace('{product_list}', `<b>${order.product_name}</b>`)
-                .replace('{address}', `<code>${order.address}</code>`)
-                .replace('{delivery_time}', order.scheduled_at ? `🕒 <b>Prévu pour : ${order.scheduled_at}</b>` : t(user, 'label_asap', '🕒 Dès que possible'))
-                .replace('{total}', `<b>${parseFloat(order.total_price).toFixed(2)}€</b>`)
-                .replace('{success_icon}', dbSettings.ui_icon_success || '🏃');
+                .replace('{product_list}', finalProductList)
+                .replace('{address}', pending.address)
+                .replace('{delivery_time}', (pending.scheduled_at ? t(user, 'label_scheduled_for', `🕒 Prévu pour :`) + ` <b>${pending.scheduled_at}</b>` : t(user, 'label_delivery_asap', `🚀 Livraison : Dès que possible`)))
+                .replace('{total}', finalPrice.toFixed(2))
+                .replace('{success_icon}', dbSettings.ui_icon_success || '✅');
 
             await safeEdit(ctx, finalConfirmedMsg, Markup.inlineKeyboard([
                 [Markup.button.callback(t(user, 'label_ongoing_orders_btn', '📦 Mes commandes en cours'), 'my_orders')],
@@ -1274,9 +1160,14 @@ function setupOrderSystem(bot) {
 
             // --- 5. TRAITEMENT ARRIÈRE-PLAN (Notifications) ---
             (async () => {
+                // Vérification première commande (en arrière-plan pour gagner du temps)
+                const officialUserId = ctx.state.user?.id || userId;
+                const previousOrders = await getOrdersByUser(officialUserId).catch(() => []);
+                const isFirstOrder = (!previousOrders || previousOrders.length <= 1);
+
                 // Notif Nouveau Client
                 if (isFirstOrder) {
-                    const adminContact = dbSettings.private_contact_url || 'https://t.me/leplugidf75';
+                    const adminContact = dbSettings.private_contact_url || 'https://t.me/plugnation_admin';
                     ctx.reply(t(user, 'msg_first_order_welcome', `👋 <b>Première commande !</b>\nContactez l'admin pour valider : {contact}`, { contact: adminContact }), { parse_mode: 'HTML' }).catch(() => {});
                 }
 
@@ -1288,10 +1179,7 @@ function setupOrderSystem(bot) {
                 const payIcon = pModes.find(m => m.id === paymentMethod.toLowerCase())?.icon || '💰';
                 const payLabel = pModes.find(m => m.id === paymentMethod.toLowerCase())?.label || paymentMethod;
 
-                const platformIcon = ctx.platform === 'whatsapp' ? '📱 [WHATSAPP]' : '✈️ [TELEGRAM]';
-
-                const baseNotifLivreur = (dbSettings.msg_order_notif_livreur || `🆕 <b>NOUVELLE COMMANDE !</b>\n\n🌐 Plateforme : {platform}\n📦 {product_list}\n📍 {address}\n{scheduled}\n💰 <b>{total}€ ({pay_icon} {pay_label})</b>`)
-                    .replace('{platform}', platformIcon)
+                const baseNotifLivreur = (dbSettings.msg_order_notif_livreur || `🆕 <b>NOUVELLE COMMANDE !</b>\n\n📦 {product_list}\n📍 {address}\n{scheduled}\n💰 <b>{total}€ ({pay_icon} {pay_label})</b>`)
                     .replace('{product_list}', esc(finalProductList))
                     .replace('{address}', esc(pending.address))
                     .replace('{scheduled}', (pending.scheduled_at ? `🕒 <b>Prévu pour : ${esc(pending.scheduled_at)}</b>` : `🕒 Dès que possible`))
@@ -1299,10 +1187,10 @@ function setupOrderSystem(bot) {
                     .replace('{pay_icon}', payIcon)
                     .replace('{pay_label}', payLabel);
 
-                const badge = isFirstOrder ? `\n🔥 <b>[ NOUVEAU CLIENT ]</b> 🔥\n` : '';
-                const baseNotifAdmin = (dbSettings.msg_order_received_admin || `🚨 <b>NOUVELLE COMMANDE !</b>\n{badge}\n🌐 Plateforme : {platform}\n👤 {client_name} (@{username})\n📦 {product_list}\n📍 {address}\n💰 {total}€ ({pay_icon} {pay_label})\n🔑 ID : <code>{order_id}</code>`)
+                const platformBadge = ctx.platform === 'whatsapp' ? '📱 <b>[ WHATSAPP ]</b>' : '✈️ <b>[ TELEGRAM ]</b>';
+                const badge = (isFirstOrder ? `\n🔥 <b>[ NOUVEAU CLIENT ]</b> 🔥\n` : '') + platformBadge + '\n';
+                const baseNotifAdmin = (dbSettings.msg_order_received_admin || `🚨 <b>NOUVELLE COMMANDE !</b>\n{badge}\n👤 {client_name} (@{username})\n📦 {product_list}\n📍 {address}\n💰 {total}€ ({pay_icon} {pay_label})\n🔑 ID : <code>{order_id}</code>`)
                     .replace('{badge}', badge)
-                    .replace('{platform}', platformIcon)
                     .replace('{client_name}', esc(ctx.from.first_name))
                     .replace('{username}', (ctx.from.username ? esc(ctx.from.username) : 'Inconnu'))
                     .replace('{product_list}', esc(finalProductList))
@@ -1314,21 +1202,20 @@ function setupOrderSystem(bot) {
 
                 const adminBtns = Markup.inlineKeyboard([
                     [Markup.button.callback('🤝 ASSIGNER', `ao_l_${order.id}`)],
-                    [Markup.button.callback('⚙️ GÉRER', `ao_v_${order.id}`)],
-                    [Markup.button.callback('💬 CONTACTER', `admin_chat_user_${order.user_id}`)]
+                    [Markup.button.callback('⚙️ GÉRER', `ao_v_${order.id}`)]
                 ]).reply_markup;
 
                 // Envois réels
-                notifyAdmins(bot, baseNotifAdmin, { reply_markup: adminBtns }).catch(e => console.error("Admin Notif Error:", e.message));
+                notifyAdmins(bot, baseNotifAdmin, { reply_markup: adminBtns }).catch(e => console.error("Erreur de notification Admin :", e.message));
                 
                 // SI FOURNISSEUR -> ON ATTEND SON FEU VERT (Pas de notif livreur immédiate)
                 if (orderSupplierId) {
-                    notifySuppliers(bot, cart, order.id, pending.address, dbSettings, isFirstOrder).catch(e => console.error("Supplier Notif Error:", e.message));
+                    notifySuppliers(bot, cart, order.id, pending.address, dbSettings, isFirstOrder).catch(e => console.error("Erreur de notification Fournisseur :", e.message));
                 } else {
-                    notifyLivreurs(bot, baseNotifLivreur, { reply_markup: Markup.inlineKeyboard([[Markup.button.callback('📦 Voir Commandes', 'show_available_orders')]]).reply_markup }).catch(e => console.error("Livreur Notif Error:", e.message));
+                    notifyLivreurs(bot, baseNotifLivreur, { reply_markup: Markup.inlineKeyboard([[Markup.button.callback('📦 Voir Commandes', 'show_available_orders')]]).reply_markup }).catch(e => console.error("Erreur de notification Livreur :", e.message));
                 }
 
-            })().catch(e => console.error("Background processing crash:", e.message));
+            })().catch(e => console.error("Crash du traitement en arrière-plan :", e.message));
 
         } catch (err) {
             console.error(`[Checkout] Erreur fatale pour ${userId}:`, err.message);
@@ -1414,7 +1301,7 @@ function setupOrderSystem(bot) {
         const keyboard = await getLivreurMenuKeyboard(ctx, settings, user || { is_available: isAvailable, data: { is_available: isAvailable } });
         await safeEdit(ctx, text, keyboard);
 
-        // 5. Cleanup bouton "Démarrer"
+        // 5. Nettoyage du bouton "Démarrer"
         ctx.telegram.setChatMenuButton(ctx.chat.id, { type: 'commands' }).catch(() => { });
 
         // 6. Relayer à l'admin
@@ -1437,7 +1324,7 @@ function setupOrderSystem(bot) {
         const userId = `${ctx.platform}_${ctx.from.id}`;
         await supabase.from(COL_USERS).update({ is_livreur: false, is_available: false, updated_at: ts() }).eq('id', userId);
         
-        // Invalider cache
+        // Invalider le cache
         if (_userCache) _userCache.delete(userId);
 
         await safeEdit(ctx, '✅ <b>Profil désactivé avec succès.</b>\nVous ne faites plus partie de l\'équipe de livraison.', Markup.inlineKeyboard([
@@ -1580,14 +1467,15 @@ function setupOrderSystem(bot) {
         const order = await getOrder(orderId);
         const settings = ctx.state?.settings || await getAppSettings();
         
-        if (!order) return ctx.answerCbQuery('❌ NO ORDER');
+        if (!order) return ctx.answerCbQuery('❌ AUCUNE COMMANDE');
 
         // On vérifie si l'appelant est le livreur (pour le menu de prise en charge) 
         // ou le client (pour le suivi).
         const isLivreurRole = user?.is_livreur;
         
-        // Si c'est un livreur qui regarde une commande "pending", on lui montre le menu d'acceptation
-        if (isLivreurRole && (order.status === 'pending' || order.status === 'supplier_pending')) {
+        // Si c'est un livreur qui regarde une commande disponible, on lui montre le menu d'acceptation
+        const availableStatuses = ['pending', 'supplier_pending', 'validated', 'supplier_ready'];
+        if (isLivreurRole && availableStatuses.includes(order.status)) {
             await ctx.answerCbQuery();
             const text = t(user, 'msg_order_mission_details_text', `📦 <b>Détails de la mission #${orderId.slice(-5)}</b>\n\n`, { id: orderId.slice(-5) }) +
                 t(user, 'label_product', `🛒 Produit :`) + ` <b>${order.product_name}</b>\n` +
@@ -1605,8 +1493,20 @@ function setupOrderSystem(bot) {
 
         // Sinon, c'est la vue CLIENT (suivi de commande)
         await ctx.answerCbQuery();
-        let statusEmoji = o => (o.status === 'pending' || o.status === 'supplier_pending') ? '⏳' : (o.status === 'taken' ? '🚚' : (o.status === 'delivered' ? '✅' : '❌'));
-        let statusLabel = o => (o.status === 'pending' || o.status === 'supplier_pending') ? t(user, 'label_pending', 'En attente') : (o.status === 'taken' ? t(user, 'label_taken', 'En cours') : (o.status === 'delivered' ? t(user, 'label_delivered', 'Livrée') : t(user, 'label_cancelled', 'Annulée')));
+        let statusEmoji = o => {
+            if (o.status === 'pending' || o.status === 'supplier_pending') return '⏳';
+            if (o.status === 'validated' || o.status === 'supplier_ready') return '📦';
+            if (o.status === 'taken') return '🚚';
+            if (o.status === 'delivered') return '✅';
+            return '❌';
+        };
+        let statusLabel = o => {
+            if (o.status === 'pending' || o.status === 'supplier_pending') return t(user, 'label_pending', 'En attente');
+            if (o.status === 'validated' || o.status === 'supplier_ready') return t(user, 'label_ready', 'Prêt / Validé');
+            if (o.status === 'taken') return t(user, 'label_taken', 'En cours');
+            if (o.status === 'delivered') return t(user, 'label_delivered', 'Livrée');
+            return t(user, 'label_cancelled', 'Annulée');
+        };
 
         let text = t(user, 'msg_order_tracking', `📦 <b>Suivi Commande #${orderId.slice(-5)}</b>`, { id: orderId.slice(-5) }) + `\n\n` +
             t(user, 'label_status', `🔹 Statut :`) + ` ${statusEmoji(order)} <b>${statusLabel(order)}</b>\n` +
@@ -1619,7 +1519,8 @@ function setupOrderSystem(bot) {
         }
         
         const feedbackBtn = order.status === 'delivered' ? [Markup.button.callback(t(user, 'btn_leave_review', '⭐ Laisser un avis'), `rate_order_${orderId}`)] : [];
-        const cancelBtn = (order.status === 'pending' || order.status === 'taken' || order.status === 'supplier_pending') ? [Markup.button.callback(t(user, 'btn_cancel_order_label', '❌ Annuler la commande'), `cancel_order_client_${orderId}`)] : [];
+        const cancelableStatuses = ['pending', 'taken', 'supplier_pending', 'supplier_accepted', 'validated', 'supplier_ready'];
+        const cancelBtn = cancelableStatuses.includes(order.status) ? [Markup.button.callback(t(user, 'btn_cancel_order_label', '❌ Annuler la commande'), `cancel_order_client_${orderId}`)] : [];
         const chatBtn = (order.status === 'taken') ? [Markup.button.callback(t(user, 'btn_chat_livreur', '💬 Parler au livreur'), `chat_livreur_${orderId}`)] : [];
 
         const buttons = [];
@@ -1637,7 +1538,10 @@ function setupOrderSystem(bot) {
         const settings = ctx.state?.settings || await getAppSettings();
         const order = await getOrder(orderId);
 
-        if (!order || order.status !== 'pending') return safeEdit(ctx, settings.msg_order_not_available || '❌ Cette commande n\'est plus disponible.', Markup.inlineKeyboard([[Markup.button.callback(settings.btn_back_generic || '◀️ Retour', 'show_available_orders')]]));
+        const availableStatuses = ['pending', 'supplier_pending', 'validated', 'supplier_ready'];
+        if (!order || !availableStatuses.includes(order.status)) {
+            return safeEdit(ctx, settings.msg_order_not_available || '❌ Cette commande n\'est plus disponible.', Markup.inlineKeyboard([[Markup.button.callback(settings.btn_back_generic || '◀️ Retour', 'show_available_orders')]]));
+        }
 
         await updateOrderStatus(orderId, 'taken', {
             livreur_id: `${ctx.platform}_${ctx.from.id}`,
@@ -1648,10 +1552,7 @@ function setupOrderSystem(bot) {
             `📦 Produit : <b>${order.product_name}</b>\n` +
             `📍 Adresse : <code>${order.address}</code>\n` +
             (order.scheduled_at ? `🕒 <b>PRÉVU POUR : ${order.scheduled_at}</b>\n\n` : `🕒 Dès que possible\n\n`) +
-            `💰 <b>Détails du Paiement :</b>\n` +
-            `   ├ Total commande : ${(parseFloat(order.total_price) + (order.discount_applied || 0)).toFixed(2)}€\n` +
-            `   ├ Crédit utilisé : ${(order.discount_applied || 0).toFixed(2)}€\n` +
-            `   └ 💵 <b>À ENCAISSER : ${parseFloat(order.total_price).toFixed(2)}€</b>\n\n` +
+            `💰 Total à encaisser : <b>${order.total_price}€</b>\n\n` +
             `💡 <i>Pensez à partager votre position en direct pour notifier le client de votre arrivée.</i>\n\n` +
             `Cliquez sur le bouton ci-dessous une fois livré :`,
             {
@@ -1926,7 +1827,7 @@ function setupOrderSystem(bot) {
         );
     });
 
-    // --- New Review System ---
+    // --- Nouveau Système d'Avis ---
     bot.action('leave_review', async (ctx) => {
         const settings = ctx.state?.settings || await getAppSettings();
         await ctx.answerCbQuery();
@@ -1977,7 +1878,7 @@ function setupOrderSystem(bot) {
                     return await uploadMediaFromUrl(link.href, `rev_${Date.now()}${ext}`);
                 }
             } catch (e) {
-                console.warn('[REVIEW-MEDIA-TG] Upload failed, using file_id:', e.message);
+                console.warn('[REVIEW-MEDIA-TG] Échec du téléchargement, utilisation de file_id :', e.message);
                 const mediaArr = Array.isArray(mediaItem) ? mediaItem : [mediaItem];
                 return mediaArr[mediaArr.length - 1]?.file_id || null;
             }
@@ -2018,7 +1919,7 @@ function setupOrderSystem(bot) {
         }
     });
 
-    // Hint button — just tells user to send a photo/video directly
+    // Bouton d'indice — indique simplement à l'utilisateur d'envoyer une photo/vidéo directement
     bot.action('review_add_media_hint', async (ctx) => {
         await ctx.answerCbQuery('📸 Envoyez une photo ou vidéo directement dans le chat !', { show_alert: true });
     });
@@ -2057,7 +1958,7 @@ function setupOrderSystem(bot) {
         });
     });
 
-    // State for review pagination
+    // État pour la pagination des avis
     const reviewPagination = new Map();
 
     bot.action(/^view_reviews(?:_(\d+))?$/, async (ctx) => {
@@ -2081,7 +1982,7 @@ function setupOrderSystem(bot) {
             `${stars}\n"<i>${esc(r.text) || 'Sans commentaire'}</i>"\n\n` +
             `👤 <b>Client de la famille</b> - ${date}`;
 
-        // Photo/Video resolution
+        // Résolution Photo/Vidéo
         let photo = r.photo_file_id || null;
         let video = null;
         if (!photo) {
@@ -2159,7 +2060,7 @@ function setupOrderSystem(bot) {
                     }
                 }
             } catch (e) {
-                console.error("Error parsing media URLs for broadcast:", e);
+                console.error("Erreur lors de l'analyse des URLs média pour la diffusion :", e);
             }
         }
 
@@ -2242,7 +2143,7 @@ function setupOrderSystem(bot) {
                             finalMediaUrls.push(permanentUrl);
                         }
                     } catch (e) {
-                        console.error('[WA-REVIEW] Media processing failed:', e.message);
+                        console.error('[WA-REVIEW] Échec du traitement du média :', e.message);
                     }
                 } else if (ctx.telegram) {
                     try {
@@ -2251,7 +2152,7 @@ function setupOrderSystem(bot) {
                         const permanentUrl = await uploadMediaFromUrl(link.href, fileName);
                         finalMediaUrls.push(permanentUrl);
                     } catch (e) {
-                        console.warn('[REVIEW] Upload to storage failed, using file_id:', e.message);
+                        console.warn('[REVIEW] Échec du téléchargement vers le stockage, utilisation de file_id :', e.message);
                         finalMediaUrls.push(media.file_id || media); 
                     }
                 }
@@ -2278,7 +2179,7 @@ function setupOrderSystem(bot) {
             return;
         }
 
-        // 2. Generic Review (Not tied to order, or from main menu) — Multi-step flow
+        // 2. Avis générique (non lié à une commande, ou depuis le menu principal) — flux multi-étapes
         if (awaitingReviewText.has(userId)) {
             const data = awaitingReviewText.get(userId);
             const photo = ctx.message.photo ? (Array.isArray(ctx.message.photo) ? ctx.message.photo[ctx.message.photo.length - 1] : ctx.message.photo) : null;
@@ -2334,7 +2235,7 @@ function setupOrderSystem(bot) {
                 }
             }
 
-            // Finalise: save review with all accumulated data
+            // Finaliser : enregistrer l'avis avec toutes les données accumulées
             awaitingReviewText.delete(userId);
             const { saveReview: saveReviewFn, getAppSettings: getAppSettingsFn } = require('../services/database');
             const reviewSettings = await getAppSettingsFn();
@@ -2390,7 +2291,7 @@ function setupOrderSystem(bot) {
                                 ])
                             }
                         ).catch(err => {
-                            console.error(`❌ Send delay report failed to ${targetId}:`, err.message);
+                            console.error(`❌ Échec de l'envoi du rapport de retard à ${targetId} :`, err.message);
                             throw err;
                         });
 
@@ -2404,7 +2305,7 @@ function setupOrderSystem(bot) {
                 return;
             }
         } catch (errDelay) {
-            console.error("❌ CRITICAL DELAY RELAY ERROR:", errDelay);
+            console.error("❌ ERREUR CRITIQUE DE RELAYAGE DE CHAT :", errDelay);
             await ctx.reply(`⚠️ Échec de l'envoi du retard : ${errDelay.message || 'Erreur inconnue'}.`).catch(() => { });
             return;
         }
@@ -2463,7 +2364,7 @@ function setupOrderSystem(bot) {
                 return;
             }
         } catch (errChat) {
-            console.error("❌ CRITICAL CHAT RELAY ERROR:", errChat);
+            console.error("❌ ERREUR CRITIQUE DE RELAYAGE DE CHAT :", errChat);
             await ctx.reply(`⚠️ Échec de l'envoi : ${errChat.message || 'Erreur inconnue'}.`).catch(() => { });
             return;
         }
@@ -2534,9 +2435,8 @@ function setupOrderSystem(bot) {
 
         // settings already defined above
         let detailText = `📦 <b>Détails Livraison #${orderId.slice(-5)}</b>\n\n` +
-            `📦 Produit : <b>${order.product_name}</b>\n` +
             `📍 Adresse : <code>${order.address}</code>\n` +
-            `💰 <b>À ENCAISSER : ${parseFloat(order.total_price).toFixed(2)}€</b>\n\n`;
+            `💰 À encaisser : <b>${order.total_price}€</b>\n\n`;
 
         if (order.scheduled_at) {
             detailText = `🗓 <b>LIVRAISON PLANIFIÉE</b>\n` +
@@ -2582,9 +2482,8 @@ function setupOrderSystem(bot) {
             const settings = await getAppSettings();
             const activeOrders = await getClientActiveOrders(`${ctx.platform}_${ctx.from.id}`);
 
-            let text = `<b>✨ CENTRE D’ASSISTANCE — ${settings.bot_name || 'LE PLUG IDF'}</b>\n\n` +
-                `<i>Votre satisfaction est notre priorité. Nos équipes sont disponibles pour vous accompagner.</i>\n\n` +
-                `<b>Comment pouvons-nous vous aider aujourd'hui ?</b>`;
+            let text = `<b>${settings.label_help || 'Aide & Support'}</b>\n\n` +
+                `${settings.msg_help_intro || 'Besoin d\'aide ? Choisissez une option ci-dessous :'}`;
 
             const buttons = [];
             if (activeOrders.length > 0) {
@@ -2628,30 +2527,13 @@ function setupOrderSystem(bot) {
         const settings = await getAppSettings();
         await notifyAdmins(bot, `❓ <b>DEMANDE "OÙ EST MA COMMANDE"</b>\n\n🆔 ID : <code>#${shortId}</code>\n👤 Client : ${ctx.from.first_name}`);
 
-        await safeEdit(ctx, `✅ <b>DEMANDE PRIORITAIRE ENVOYÉE</b>\n\n` +
-            `Nous avons alerté votre livreur pour la commande <code>#${shortId}</code>.\n\n` +
-            `Une mise à jour de votre estimation d'arrivée vous sera envoyée dans les plus brefs délais par message direct.\n\n` +
-            `<i>Merci de votre patience et de votre confiance.</i>`,
+        await safeEdit(ctx, `✅ <b>Votre demande a été transmise !</b>\n\nLe livreur (ID #${shortId}) a été notifié de votre attente. Il reviendra vers vous très vite par message.`,
             Markup.inlineKeyboard([[Markup.button.callback('◀️ Retour', 'help_menu')]])
         );
     });
 
     // Note: help_chat_admin est géré par handlers/admin.js pour éviter les duplications
 
-    bot.action('user_chat_reply_admin', async (ctx) => {
-        await ctx.answerCbQuery();
-        awaitingUserSupportReply.set(`${ctx.platform}_${ctx.from.id}`, true);
-        return ctx.reply(`💬 <b>Réponse à l'administration</b>\n\nEnvoyez votre message maintenant (texte, photo ou vidéo) :`, {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([[Markup.button.callback('❌ Annuler', 'cancel_user_support')]])
-        });
-    });
-
-    bot.action('cancel_user_support', async (ctx) => {
-        awaitingUserSupportReply.delete(`${ctx.platform}_${ctx.from.id}`);
-        await ctx.answerCbQuery('Annulé');
-        return showHelpMenu(ctx);
-    });
 
 
     // Mode client pour les livreurs
@@ -2703,7 +2585,7 @@ function setupOrderSystem(bot) {
             let totalEarned = 0;
 
             deliveries.forEach((d, i) => {
-                // Parsing date Supabase simple
+                // Analyse simple de la date Supabase
                 const dateStr = d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : 'Date inconnue';
                 text += `${i + 1}. #${d.id.slice(-5)} - ${d.product_name} (${d.total_price}€)\n` +
                     `📅 ${dateStr} - 📍 ${(d.address || 'N/A').substring(0, 20)}...\n\n`;
@@ -2727,7 +2609,7 @@ function setupOrderSystem(bot) {
 
             await updateLivreurPosition(docId, city);
 
-            // Nettoyage input
+            // Nettoyage de l'entrée
             await ctx.deleteMessage().catch(() => { });
 
             const settings = (ctx.state?.settings || await getAppSettings());
@@ -2747,7 +2629,7 @@ function setupOrderSystem(bot) {
     });
 
     bot.on('message', async (ctx, next) => {
-        // Abandoned cart activity update
+        // Mise à jour de l'activité du panier abandonné
         const userId = `${ctx.platform}_${ctx.from.id}`;
         if (userCarts.has(userId)) {
             userLastActivity.set(userId, Date.now());
@@ -2968,15 +2850,25 @@ async function checkAbandonedCarts(bot) {
     }
 }
 
-module.exports = {
-    setupOrderSystem,
-    initOrderState,
+module.exports = { 
+    setupOrderSystem, 
+    initOrderState, 
+    checkAbandonedCarts, 
+    userLastActivity,
     userCarts,
-    pendingOrders,
     awaitingAddressDetails,
     pendingOrderConfirmation,
+    pendingOrders,
     awaitingDelayReason,
     awaitingChatReply,
-    checkAbandonedCarts,
-    userLastActivity
+    awaitingReviewText,
+    hasActiveOrderState: (userId) => {
+        const id = String(userId);
+        return awaitingAddressDetails.has(id) || 
+               pendingOrderConfirmation.has(id) || 
+               pendingOrders.has(id) || 
+               awaitingDelayReason.has(id) || 
+               awaitingChatReply.has(id) || 
+               awaitingReviewText.has(id);
+    }
 };

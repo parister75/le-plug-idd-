@@ -1,15 +1,31 @@
 const fs = require('fs');
 const envPath = fs.existsSync('.env.railway') ? '.env.railway' : '.env';
 require('dotenv').config({ path: envPath });
-// [TEST RECONNECT] Supabase session persistence — push sans déconnexion WA
+// [DEPLOY] QR Regeneration & Debug - 2026-04-25 23:05
 
-console.log(`[System] Loading environment from: ${envPath}`);
+console.log(`[Système] Chargement de l'environnement depuis : ${envPath}`);
 if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID) {
-    console.log('[System] Detected Railway Environment');
-    console.log('[System] Deployment ID:', process.env.RAILWAY_DEPLOYMENT_ID || 'Unknown');
-    console.log('[System] Replica Index:', process.env.RAILWAY_REPLICA_INDEX || '0');
-    console.log('[System] Process ID:', process.pid);
+    console.log('[Système] Environnement Railway détecté');
+    console.log('[Système] ID Déploiement :', process.env.RAILWAY_DEPLOYMENT_ID || 'Inconnu');
+    console.log('[Système] Index Réplica :', process.env.RAILWAY_REPLICA_INDEX || '0');
+    console.log('[Système] ID Processus :', process.pid);
 }
+
+// DEBUG ENV (Masked)
+const keysToLog = ['BOT_TOKEN', 'SUPABASE_URL', 'WHATSAPPD_SESSION_ID', 'WHATSAPP_SESSION_ID', 'PORT'];
+console.log('[Système-Debug] Vérification des variables clés :');
+keysToLog.forEach(key => {
+    let val = process.env[key];
+    if (typeof val === 'string') val = val.trim();
+
+    if (val && val.length > 0) {
+        console.log(`   - ${key} : PRÉSENT (${val.length} chars, début: ${val.substring(0, 4)}...)`);
+    } else {
+        const rawVal = process.env[key];
+        const detail = (rawVal === undefined) ? 'UNDEFINED' : (rawVal === '' ? 'EMPTY_STRING' : 'WHITESPACE_ONLY');
+        console.log(`   - ${key} : MANQUANT ❌ (${detail})`);
+    }
+});
 
 const { createServer, setBotInstance } = require('./server');
 const { dispatcher } = require('./services/dispatcher');
@@ -20,18 +36,15 @@ const { setBroadcastBot, broadcastMessage } = require('./services/broadcast');
 const { safeEdit, cleanupUserChat } = require('./services/utils');
 const { notifyAdmins } = require('./services/notifications');
 
-// Handlers
+// Gestionnaires
 const { setupStartHandler, initStartState, getMainMenuKeyboard, getLivreurMenuKeyboard } = require('./handlers/start');
 const { setupAdminHandlers } = require('./handlers/admin');
 const { setupOrderSystem, initOrderState, checkAbandonedCarts } = require('./handlers/order_system');
 const { setupMarketplaceHandlers, initMarketplaceState } = require('./handlers/supplier_marketplace');
 
 const PORT = process.env.PORT || 3000;
-console.log(`[System] Final PORT determined: ${PORT}`);
+console.log(`[Système] PORT final déterminé : ${PORT}`);
 const awaitingPollResponse = new Map();
-let handleMarketplaceText = () => false;
-let handleMarketplacePhoto = () => false;
-let handleMarketplaceVideo = () => false;
 
 let isStarting = false;
 
@@ -43,11 +56,11 @@ async function main() {
     
     const finalPort = process.env.PORT || 3000;
 
-    // 1. Démarrage du serveur Web IMMEDIAT
+    // 1. Démarrage du serveur Web IMMÉDIAT
     const server = createServer();
     server.listen(finalPort, '0.0.0.0', () => {
         console.log(`\n✅ SERVEUR WEB ACTIF SUR LE PORT ${finalPort}`);
-        console.log(`🔗 TEST HEALTH : https://le-plug-idf.up.railway.app/_health\n`);
+        console.log(`🔗 TEST SANTÉ : https://TIMLEMEILLEURidf-production.up.railway.app/_health\n`);
     });
 
     // 2. Initialisation du Dispatcher (Simule Telegraf)
@@ -59,7 +72,7 @@ async function main() {
         try {
             const settings = ctx.state.settings;
 
-            // 1. Check if the platform itself is enabled
+            // 1. Vérifier si la plateforme est activée
             if (ctx.platform === 'telegram' && settings.enable_telegram === false) {
                 if (ctx.callbackQuery) return ctx.answerCbQuery("ℹ️ Le service Telegram est actuellement désactivé.", { show_alert: true }).catch(() => {});
                 return ctx.reply("ℹ️ <b>Service Temporairement Indisponible</b>\n\nLe bot Telegram est actuellement désactivé par l'administration. Veuillez nous contacter sur WhatsApp ou réessayer plus tard.", { parse_mode: 'HTML' }).catch(() => {});
@@ -68,10 +81,10 @@ async function main() {
                 return ctx.reply("ℹ️ *Service Temporairement Indisponible*\n\nLe service WhatsApp est actuellement désactivé. Veuillez utiliser notre bot Telegram ou réessayer plus tard.").catch(() => {});
             }
 
-            // 2. Check if maintenance mode is enabled
+            // 2. Vérifier si le mode maintenance est activé
             if (settings && (settings.maintenance_mode === true || settings.maintenance_mode === 'true')) {
-                const adminContact = settings.maintenance_contact || 'https://t.me/leplugidf_contact';
-                const maintenanceMessage = settings.maintenance_message || '🔧 <b>Le bot est actuellement en maintenance.</b>\n\nNous revenons bientôt !\n\nContactez l\'admin : @leplugidf_contact';
+                const adminContact = settings.maintenance_contact || 'https://t.me/plugnation_admin';
+                const maintenanceMessage = settings.maintenance_message || '🔧 <b>Le bot est actuellement en maintenance.</b>\n\nNous revenons bientôt !\n\nContactez l\'admin : @plugnation_admin';
 
                 if (ctx.callbackQuery) {
                     await ctx.answerCbQuery(maintenanceMessage, { show_alert: true }).catch(() => { });
@@ -86,7 +99,7 @@ async function main() {
                 return;
             }
 
-            // Tracking activité pour paniers abandonnés
+            // Suivi d'activité pour paniers abandonnés
             const { userLastActivity } = require('./handlers/order_system');
             if (userLastActivity && ctx.from?.id) {
                 userLastActivity.set(ctx.from.id, Date.now());
@@ -108,37 +121,26 @@ async function main() {
 
             await next();
 
-            // Nettoyage messages telegram
+            // Nettoyage messages Telegram
             if (ctx.platform === 'telegram' && ctx.message && ctx.chat?.type === 'private') {
                 await ctx.deleteMessage().catch(() => { });
             }
         } catch (e) {
-            console.error('❌ Middleware Fatal Error:', e.message);
+            console.error('❌ Erreur Fatale Middleware :', e.message);
             throw e;
         }
     });
 
-    // Liaison des Handlers existants au dispatcher
+    // [DEPLOY] QR Regeneration & Debug - 2026-04-25 22:40
+    // Liaison des Gestionnaires existants au dispatcher
     setupStartHandler(dispatcher);
     setupOrderSystem(dispatcher);
     setupAdminHandlers(dispatcher);
-    
-    // Marketplace handlers capture
-    const mpHandlers = setupMarketplaceHandlers(dispatcher);
-    handleMarketplaceText = mpHandlers.handleMarketplaceText;
-    handleMarketplacePhoto = mpHandlers.handleMarketplacePhoto;
-    handleMarketplaceVideo = mpHandlers.handleMarketplaceVideo;
 
-    // Initialisation des états persistants
-    const { initAdminState } = require('./handlers/admin');
-    const { initOrderState } = require('./handlers/order_system');
-    
-    await Promise.all([
-        initOrderState(),
-        initAdminState(),
-        initMarketplaceState()
-    ]);
-    console.log('✅ Tous les états persistants sont chargés');
+    // Marketplace fournisseurs
+    const { handleMarketplaceText, handleMarketplacePhoto, handleMarketplaceVideo } = setupMarketplaceHandlers(dispatcher);
+    await initMarketplaceState();
+    console.log('🏪 Marketplace fournisseurs initialisée');
 
     // Sondages (Actions & Messages)
     dispatcher.action(/^poll_free_([\w-]+)(?:_(\d+))?$/, async (ctx) => {
@@ -183,7 +185,7 @@ async function main() {
             
             await ctx.reply(text, keyboard);
         } catch (e) {
-            console.error('[POLL-VOTE] Error:', e);
+            console.error('[SONDAGE-VOTE] Erreur :', e);
             await ctx.answerCbQuery("⚠️ Erreur lors du vote.", { show_alert: true });
         }
     });
@@ -209,36 +211,36 @@ async function main() {
                     await ctx.reply(replyText, await getMainMenuKeyboard(ctx, ctx.state.settings, ctx.state.user));
                     return;
                 } catch (e) {
-                    console.error('[POLL-FREE] Error:', e);
+                    console.error('[SONDAGE-LIBRE] Erreur :', e);
                     await ctx.reply("⚠️ Une erreur est survenue.");
                 }
             }
         }
-        // Marketplace text handler (flows ajout/édition produit fournisseur)
+        // Gestionnaire texte Marketplace (flux ajout/édition produit fournisseur)
         const mpResult = handleMarketplaceText(ctx);
         if (mpResult !== false) { await mpResult; return; }
 
         await next();
     });
 
-    // Marketplace photo handler
+    // Gestionnaire photo Marketplace
     dispatcher.on('photo', async (ctx, next) => {
-        console.log(`[Marketplace-Photo] Photo received from ${ctx.from.id}`);
+        console.log(`[Marketplace-Photo] Photo reçue de ${ctx.from.id}`);
         const mpPhotoResult = handleMarketplacePhoto(ctx);
         if (mpPhotoResult !== false) { 
-            console.log(`[Marketplace-Photo] Photo handled by marketplace`);
+            console.log(`[Marketplace-Photo] Photo traitée par la marketplace`);
             await mpPhotoResult; 
             return; 
         }
         await next();
     });
 
-    // Marketplace video handler
+    // Gestionnaire vidéo Marketplace
     dispatcher.on('video', async (ctx, next) => {
-        console.log(`[Marketplace-Video] Video received from ${ctx.from.id}`);
+        console.log(`[Marketplace-Vidéo] Vidéo reçue de ${ctx.from.id}`);
         const mpVideoResult = handleMarketplaceVideo(ctx);
         if (mpVideoResult !== false) { 
-            console.log(`[Marketplace-Video] Video handled by marketplace`);
+            console.log(`[Marketplace-Vidéo] Vidéo traitée par la marketplace`);
             await mpVideoResult; 
             return; 
         }
@@ -249,26 +251,26 @@ async function main() {
     // 2. Initialisation des Canaux
     const replicaIndex = process.env.RAILWAY_REPLICA_INDEX || '0';
     if (replicaIndex === '0') {
-        console.log('[System] Replica 0: Starting all channels (WA + TG)...');
+        console.log('[Système] Réplica 0 : Démarrage de tous les canaux (WA + TG)...');
         await initChannels();
         
-        // Background Broadcast Worker
+        // Travailleur de Diffusion en Arrière-plan
         const { processPendingBroadcasts } = require('./services/broadcast');
         const bcInterval = 15000;
         
-        // Execute immediately on startup, then every 15s
+        // Exécuter immédiatement au démarrage, puis toutes les 15s
         const runBcWorker = async () => {
             try {
                 await processPendingBroadcasts();
             } catch (e) {
-                console.error('[BC-WORKER-ERR] Loop error:', e.message);
+                console.error('[BC-WORKER-ERR] Erreur de boucle :', e.message);
             }
         };
         runBcWorker();
         setInterval(runBcWorker, bcInterval);
-        console.log('👷 Broadcast Worker active (Replica 0)');
+        console.log('👷 Travailleur de Diffusion actif (Réplica 0)');
     } else {
-        console.log(`[System] Replica ${replicaIndex}: Bot background channels disabled to avoid conflicts.`);
+        console.log(`[Système] Réplica ${replicaIndex} : Canaux d'arrière-plan désactivés pour éviter les conflits.`);
     }
 
     // 3. Liaison Canaux -> Dispatcher
@@ -310,7 +312,7 @@ async function main() {
             setInterval(() => checkAbandonedCarts(bot), 1800000);
             setInterval(() => runAutomatedSync(bot), 900000);
         }
-        // Removed duplicate checkScheduledBroadcasts - handled by Replica 0 worker in broadcast.js
+        // Doublon checkScheduledBroadcasts supprimé - géré par le worker Réplica 0 dans broadcast.js
     };
     runAutomatedTasks();
 
@@ -325,23 +327,12 @@ async function checkPlannedOrders(bot) {
         if (orders.length === 0) return;
         const nowParis = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
         for (const order of orders) {
-            if (!order.scheduled_at) continue;
+            if (!order.scheduled_at || !order.scheduled_at.includes(' ')) continue;
             
-            let datePart, timePart;
-            if (typeof order.scheduled_at === 'string' && order.scheduled_at.includes(' ')) {
-                const parts = order.scheduled_at.split(' ');
-                datePart = parts[0];
-                timePart = parts[1];
-            } else if (typeof order.scheduled_at === 'string' && order.scheduled_at.includes('T')) {
-                const parts = order.scheduled_at.split('T');
-                datePart = parts[0];
-                timePart = parts[1].split('.')[0].split('+')[0]; // HH:mm:ss
-            } else if (order.scheduled_at instanceof Date) {
-                datePart = order.scheduled_at.toISOString().split('T')[0];
-                timePart = order.scheduled_at.toISOString().split('T')[1].split('.')[0];
-            } else {
-                continue;
-            }
+            const parts = order.scheduled_at.split(' ');
+            const datePart = parts[0];
+            const timePart = parts[1];
+            if (!timePart) continue;
 
             const timeClean = timePart.replace('h', ':');
             const [h, m] = timeClean.split(':');
@@ -361,7 +352,7 @@ async function checkPlannedOrders(bot) {
             }
         }
     } catch (e) {
-        console.error('❌ Error checkPlannedOrders:', e.message);
+        console.error('❌ Erreur checkPlannedOrders :', e.message);
     }
 }
 
@@ -376,7 +367,7 @@ async function sendPlannedAlert(bot, order, type) {
 
 async function checkScheduledBroadcasts() {
     try {
-        const { supabase, COL_BROADCASTS, COL_USERS } = require('./services/database'); // Added COL_USERS
+        const { supabase, COL_BROADCASTS, COL_USERS } = require('./services/database'); // Ajout de COL_USERS
         const { broadcastMessage } = require('./services/broadcast');
         const now = new Date().toISOString();
         const { data: pending } = await supabase.from(COL_BROADCASTS).select('*').eq('status', 'pending').lte('start_at', now);
@@ -391,7 +382,7 @@ async function checkScheduledBroadcasts() {
             }
             await broadcastMessage(bc.target_platform, finalMsg, { id: bc.id, mediaUrls: mediaUrls, start_at: bc.start_at, end_at: bc.end_at, badge: bc.badge });
         }
-    } catch (e) { console.error('❌ Error checkScheduledBroadcasts:', e.message); }
+    } catch (e) { console.error('❌ Erreur checkScheduledBroadcasts :', e.message); }
 }
 
 function startAutomatedTimer(bot) {
@@ -410,10 +401,10 @@ async function runAutomatedSync(bot) {
         const users = await getAllUsersForBroadcast('telegram', 'user');
         if (!users || users.length === 0) return;
         
-        console.log(`[Sync] Starting sync for ${users.length} users...`);
+        console.log(`[Sync] Démarrage de la synchronisation pour ${users.length} utilisateurs...`);
         
-        // Process in batches of 20 to avoid rate limits and event loop blocking
-        const batchSize = 20;
+        // Traiter par lots de 10 pour éviter le blocage de la boucle d'événements (cause fréquente des erreurs WhatsApp 408)
+        const batchSize = 10;
         for (let i = 0; i < users.length; i += batchSize) {
             const batch = users.slice(i, i + batchSize);
             await Promise.allSettled(batch.map(async (u) => {
@@ -428,7 +419,7 @@ async function runAutomatedSync(bot) {
                         // Si le bot n'est pas bloqué mais l'user était marqué bloqué (auto) -> on débloque
                         if (u.is_blocked && (!u.data || u.data.blocked_by_admin !== true)) {
                             await markUserUnblocked(u.id);
-                            console.log(`[Sync] User ${u.id} reachable again, unblocking.`);
+                            console.log(`[Sync] Utilisateur ${u.id} de nouveau joignable, déblocage.`);
                         }
                     } catch (err) {
                         // 403 = l'utilisateur a bloqué le bot
@@ -436,17 +427,18 @@ async function runAutomatedSync(bot) {
                             // On ne re-marque bloqué QUE s'il ne l'est pas déjà
                             if (!u.is_blocked) {
                                 await markUserBlocked(u.id, false);
-                                console.log(`[Sync] User ${u.id} blocked the bot.`);
+                                console.log(`[Sync] Utilisateur ${u.id} a bloqué le bot.`);
                             }
                         }
                     }
                 } catch (e) { }
             }));
-            await new Promise(r => setTimeout(r, 500));
+            // Délai plus long entre les lots pour laisser souffler le processeur
+            await new Promise(r => setTimeout(r, 1000));
         }
-        console.log(`[Sync] Finished sync for ${users.length} users.`);
+        console.log(`[Sync] Synchronisation terminée pour ${users.length} utilisateurs.`);
     } catch (e) {
-        console.error('❌ Error runAutomatedSync:', e.message);
+        console.error('❌ Erreur runAutomatedSync :', e.message);
     }
 }
 
