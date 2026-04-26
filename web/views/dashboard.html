@@ -3555,24 +3555,51 @@
                         <small style="opacity:0.6;">Utilisé pour les boutons "Canal" du bot.</small>
                     </div>
 
-                    <!-- NOUVEAU : Liens Additionnels Illimités -->
-                    <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px;">
-                        <h4 style="margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px;">🔗 Liens Additionnels Personnalisés</h4>
-                        <div id="custom_links_container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
-                            <!-- Dynamically populated -->
+                <div style="background:rgba(255,165,0,0.05); padding:20px; border-radius:16px; border:1px solid rgba(255,165,0,0.3); margin-top:20px;">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+                        <span style="font-size:24px;">🛡️</span>
+                        <div>
+                            <h4 style="margin:0; color:orange;">Accès Restreint & Validation</h4>
+                            <p style="margin:5px 0 0; font-size:12px; opacity:0.8;">Contrôlez comment les nouveaux clients accèdent au bot.</p>
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="addCustomLinkRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter un lien personnalisé</button>
                     </div>
+                    
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                        <label style="margin:0; font-weight:600;">✅ Approbation automatique</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="set_auto_approve_new">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <small style="opacity:0.6; display:block; margin-bottom:20px;">Si désactivé, le bot affichera un écran de blocage et demandera de rejoindre vos canaux jusqu'à ce que vous validiez le client manuellement.</small>
 
-                    <!-- NOUVEAU : Canaux de Validation (Verification Channels) -->
-                    <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px;">
-                        <h4 style="margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px;">✅ Canaux de Validation Obligatoires</h4>
-                        <p style="font-size:11px; opacity:0.6; margin-bottom:10px;">Ces canaux sont affichés aux nouveaux utilisateurs en attente de validation.</p>
+                    <!-- Canaux de Validation -->
+                    <div style="padding:15px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:12px;">
+                        <h5 style="margin:0 0 10px; font-size:13px; display:flex; align-items:center; gap:8px;">🔗 Étapes de validation (Canaux / Contacts)</h5>
                         <div id="verification_channels_container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
                             <!-- Dynamically populated -->
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="addVerificationChannelRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter un canal de validation</button>
+                        <button class="btn btn-outline btn-sm" onclick="addVerificationChannelRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter une étape (Canal/Contact)</button>
+                        <small style="display:block; margin-top:10px; font-size:11px; opacity:0.5;">Laissez vide si vous voulez juste une validation manuelle sans obliger à rejoindre un canal.</small>
                     </div>
+
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:20px;">
+                        <label style="margin:0;">🔔 Notifier le client après approbation</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="set_notify_on_approval">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Liens Additionnels Illimités -->
+                <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px;">
+                    <h4 style="margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px;">🔗 Liens Additionnels Personnalisés</h4>
+                    <div id="custom_links_container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
+                        <!-- Dynamically populated -->
+                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="addCustomLinkRow()" style="width:100%; border-style:dashed; opacity:0.8;">+ Ajouter un lien personnalisé</button>
                 </div>
 
                 <h3 style="margin-top:25px; margin-bottom:15px; font-size:18px;">Activation des plateformes & services</h3>
@@ -4158,30 +4185,6 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0;">Automatisations & Relances (Push)</h3>
                     <button class="btn btn-accent btn-sm" onclick="saveSettings()">💾 Sauvegarder</button>
-                </div>
-                <div style="background:rgba(255,165,0,0.05); padding:20px; border-radius:12px; border:1px solid orange; margin-bottom:20px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
-                        <div>
-                            <h4 style="margin:0; color:orange;">🛡️ Sécurité & Accès</h4>
-                            <p style="margin:5px 0 0; font-size:12px; opacity:0.8;">Contrôle de l'approbation des nouveaux clients.</p>
-                        </div>
-                    </div>
-                    
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                        <label style="margin:0;">Approuver automatiquement les nouveaux inscrits</label>
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="set_auto_approve_new" style="width: 20px; height: 20px;">
-                        </div>
-                    </div>
-                    <small style="opacity:0.6; display:block; margin-bottom:15px;">Si désactivé, tout nouveau client devra être validé manuellement par un admin.</small>
-
-                    <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <label style="margin:0;">Notifier le client lors de son approbation</label>
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="set_notify_on_approval" style="width: 20px; height: 20px;">
-                        </div>
-                    </div>
-                    <small style="opacity:0.6; display:block;">Pour WhatsApp, désactivez cette option si vous voulez éviter l'envoi de messages non-sollicités (anti-ban).</small>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.05); padding:20px; border-radius:12px; border:1px solid var(--border);">

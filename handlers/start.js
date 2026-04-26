@@ -149,20 +149,23 @@ function setupStartHandler(bot) {
                 try {
                     channels = typeof settings.verification_channels === 'string' ? JSON.parse(settings.verification_channels) : (settings.verification_channels || []);
                 } catch(e) {
-                    channels = [
-                        { label: 'Canal Officiel', url: 'https://t.me/+qTYatGLmccpkZmRk' }
-                    ];
+                    channels = [];
                 }
 
-                const restrictedText = `🛑 <b>ACCÈS RESTREINT</b>\n\n` +
-                    `Bonjour <b>${user.first_name}</b>, votre compte est en attente de validation par un administrateur.\n\n` +
-                    `⚠️ <b>IMPORTANT :</b> Pour être validé rapidement, veuillez suivre ces étapes :\n\n` +
-                    channels.map(c => {
-                        const isContact = c.label.toLowerCase().includes('secrétaire') || c.label.toLowerCase().includes('contact') || !c.url.includes('+');
-                        const icon = isContact ? '👤' : '📢';
-                        return `${icon} <a href="${c.url}">${c.label}</a>`;
-                    }).join('\n') +
-                    `\n\nUne fois les étapes complétées, cliquez sur le bouton ci-dessous pour prévenir l'équipe.`;
+                let restrictedText = `🛑 <b>ACCÈS RESTREINT</b>\n\n` +
+                    `Bonjour <b>${user.first_name}</b>, votre compte est en attente de validation par un administrateur.\n\n`;
+                
+                if (channels.length > 0) {
+                    restrictedText += `⚠️ <b>IMPORTANT :</b> Pour être validé rapidement, veuillez suivre ces étapes :\n\n` +
+                        channels.map(c => {
+                            const isContact = c.label.toLowerCase().includes('secrétaire') || c.label.toLowerCase().includes('contact') || (c.url && !c.url.includes('+'));
+                            const icon = isContact ? '👤' : '📢';
+                            return `${icon} <a href="${c.url}">${c.label}</a>`;
+                        }).join('\n') +
+                        `\n\nUne fois les étapes complétées, cliquez sur le bouton ci-dessous pour prévenir l'équipe.`;
+                } else {
+                    restrictedText += `<i>Dès qu'un administrateur aura validé votre accès, vous recevrez une notification et pourrez accéder au menu complet.</i>`;
+                }
 
                 const buttons = [];
                 channels.forEach((c, index) => {
