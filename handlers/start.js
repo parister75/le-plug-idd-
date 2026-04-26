@@ -150,20 +150,26 @@ function setupStartHandler(bot) {
                     channels = typeof settings.verification_channels === 'string' ? JSON.parse(settings.verification_channels) : (settings.verification_channels || []);
                 } catch(e) {
                     channels = [
-                        { label: 'Canal 1', url: 'https://t.me/+qTYatGLmccpkZmRk' },
-                        { label: 'Canal 2', url: 'https://t.me/leplug_idf' }
+                        { label: 'Canal Officiel', url: 'https://t.me/+qTYatGLmccpkZmRk' },
+                        { label: 'Contact Secrétaire', url: 'https://t.me/leplug_idf' }
                     ];
                 }
 
                 const restrictedText = `🛑 <b>ACCÈS RESTREINT</b>\n\n` +
                     `Bonjour <b>${user.first_name}</b>, votre compte est en attente de validation par un administrateur.\n\n` +
-                    `⚠️ <b>IMPORTANT :</b> Pour être validé, vous devez impérativement rejoindre les canaux suivants :\n` +
-                    channels.map(c => `🔹 <a href="${c.url}">${c.label}</a>`).join('\n') +
-                    `\n\nUne fois que vous avez rejoint, cliquez sur le bouton ci-dessous pour prévenir l'administrateur.`;
+                    `⚠️ <b>IMPORTANT :</b> Pour être validé rapidement, veuillez suivre ces étapes :\n\n` +
+                    channels.map(c => {
+                        const isContact = c.label.toLowerCase().includes('secrétaire') || c.label.toLowerCase().includes('contact') || !c.url.includes('+');
+                        const icon = isContact ? '👤' : '📢';
+                        return `${icon} <a href="${c.url}">${c.label}</a>`;
+                    }).join('\n') +
+                    `\n\nUne fois les étapes complétées, cliquez sur le bouton ci-dessous pour prévenir l'équipe.`;
 
                 const buttons = [];
                 channels.forEach((c, index) => {
-                    buttons.push([Markup.button.url(`📢 ${c.label}`, c.url)]);
+                    const isContact = c.label.toLowerCase().includes('secrétaire') || c.label.toLowerCase().includes('contact') || !c.url.includes('+');
+                    const icon = isContact ? '👤' : '📢';
+                    buttons.push([Markup.button.url(`${icon} ${c.label}`, c.url)]);
                 });
                 buttons.push([Markup.button.callback('✅ J\'AI REJOINT LES CANAUX', `notify_join_${docId}`)]);
                 if (settings.private_contact_url) {
