@@ -3416,6 +3416,7 @@
         <section class="section" id="section-settings">
             <div class="section-header flex flex-mobile-column justify-between items-center" style="margin-bottom:24px; gap:15px;">
                 <h1 style="margin:0;">Paramètres</h1>
+                <div id="settings-debug-indicator" style="font-size:10px; opacity:0.5; color:var(--accent);"></div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
                     <button class="btn btn-sm btn-outline active" id="btn-stab-general"
                         onclick="switchSettingsTab('general')">Général</button>
@@ -6020,6 +6021,8 @@
         /* LOGIC FUNCTIONS */
         function renderSettingsUI(s) {
             console.log("[SETTINGS] Starting renderSettingsUI", s);
+            const debugIndicator = document.getElementById('settings-debug-indicator');
+            if (debugIndicator) debugIndicator.innerText = "Chargement...";
             try {
                 if (!s) { console.error("[SETTINGS] No settings data provided"); return; }
                 const setVal = (id, val) => {
@@ -6087,7 +6090,9 @@
                             const serverLinks = typeof s.custom_links === 'string' ? JSON.parse(s.custom_links) : (s.custom_links || []);
                             if (serverLinks && Array.isArray(serverLinks) && serverLinks.length > 0) {
                                 cLinks = serverLinks;
-                                localStorage.setItem('leplugidf_custom_links', JSON.stringify(cLinks));
+                                try {
+                            localStorage.setItem('leplugidf_custom_links', JSON.stringify(cLinks));
+                        } catch(e) {}
                             } else {
                                 const stored = localStorage.getItem('leplugidf_custom_links');
                                 if (stored) cLinks = JSON.parse(stored);
@@ -6247,6 +6252,7 @@
 
                 if (typeof updateNavbarIcons === 'function') updateNavbarIcons();
                 console.log("[SETTINGS] Render finished successfully");
+                if (debugIndicator) debugIndicator.style.display = "none";
             } catch (err) {
                 console.error("[SETTINGS-UI-ERROR]", err);
                 showToast("Erreur fatale d'affichage: " + err.message, "error");
@@ -7261,12 +7267,21 @@
         // Logic for Settings Tabs
         function switchSettingsTab(tab) {
             const tabs = ['general', 'security', 'fidelity', 'payment', 'content', 'ui', 'auto', 'danger'];
+            console.log("[TABS] Switching to", tab);
             tabs.forEach(t => {
                 const el = document.getElementById('sub-settings-' + t);
-                if (el) el.style.display = (t === tab) ? 'block' : 'none';
                 const btn = document.getElementById('btn-stab-' + t);
+                if (el) {
+                    el.style.setProperty('display', (t === tab) ? 'block' : 'none', 'important');
+                    if (t === tab) {
+                        console.log("[TABS] Show section", t, el.innerHTML.length, "bytes");
+                    }
+                }
                 if (btn) btn.classList.toggle('active', t === tab);
             });
+            // Force scroll to top of settings
+            const section = document.getElementById('section-settings');
+            if (section) section.scrollTop = 0;
         }
 
         // Logic for Livreur History
