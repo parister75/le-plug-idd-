@@ -7420,7 +7420,7 @@
                     'btn_clear_cart','btn_cancel_order','btn_cancel_my_order','btn_abandon_delivery',
                     'btn_send_now','btn_help_support','btn_where_is_delivery','btn_cancel','btn_cancel_alt',
                     'btn_dont_use_credit','btn_set_available','btn_notify_30min','btn_notify_10min',
-                    'btn_rate_5','btn_rate_4','btn_rate_3','btn_rate_1',
+                    'btn_rate_5','btn_rate_4','btn_rate_3','btn_rate_2','btn_rate_1',
                     'msg_session_expired','msg_product_not_found','msg_order_not_available','msg_order_not_found',
                     'msg_order_creation_error','msg_not_livreur','msg_access_denied',
                     'msg_catalog_empty','msg_cart_empty','msg_no_reviews_yet','msg_no_information',
@@ -7499,6 +7499,24 @@
             }, 50);
             
             // Remove highlight class after animation
+            setTimeout(() => div.classList.remove('highlight-new'), 1500);
+        }
+
+        function addVerificationChannelRow(label = '', url = '') {
+            const container = document.getElementById('verification_channels_container');
+            if (!container) return;
+            const div = document.createElement('div');
+            div.className = 'verification-channel-row highlight-new';
+            div.style = "display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:8px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); transition:0.2s;";
+            div.innerHTML = `
+                <input class="vc-label-input" value="${label}" placeholder="Nom (ex: Canal VIP)" style="flex:1; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
+                <input class="vc-url-input" value="${url}" placeholder="https://t.me/..." style="flex:2; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
+                <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
+            `;
+            container.appendChild(div);
+            setTimeout(() => {
+                div.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
             setTimeout(() => div.classList.remove('highlight-new'), 1500);
         }
 
