@@ -4257,6 +4257,25 @@
     </main>
 
     <script>
+        // Global helper functions (hoisted)
+        function addVerificationChannelRow(label = '', url = '') {
+            const container = document.getElementById('verification_channels_container');
+            if (!container) return;
+            const div = document.createElement('div');
+            div.className = 'verification-channel-row highlight-new';
+            div.style = "display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:8px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); transition:0.2s;";
+            div.innerHTML = `
+                <input class="vc-label-input" value="${label}" placeholder="Nom (ex: Canal VIP)" style="flex:1; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
+                <input class="vc-url-input" value="${url}" placeholder="https://t.me/..." style="flex:2; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
+                <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
+            `;
+            container.appendChild(div);
+            setTimeout(() => {
+                div.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+            setTimeout(() => div.classList.remove('highlight-new'), 1500);
+        }
+
         const TOKEN = localStorage.getItem('admin_token');
         let chartInstances = {};
         window.lastAnalytics = null;
@@ -6046,11 +6065,14 @@
                     vChannels = typeof s.verification_channels === 'string' ? JSON.parse(s.verification_channels) : (s.verification_channels || []);
                 } catch (e) { console.error('Parse verification_channels failed', e); }
                 if (vChannels && Array.isArray(vChannels) && vChannels.length > 0) {
-                    vChannels.forEach(c => addVerificationChannelRow(c.label, c.url));
+                    vChannels.forEach(c => {
+                        if (typeof addVerificationChannelRow === 'function') addVerificationChannelRow(c.label, c.url);
+                    });
                 } else {
-                    // Defaults if empty
-                    addVerificationChannelRow('Canal 1', 'https://t.me/+qTYatGLmccpkZmRk');
-                    addVerificationChannelRow('Canal 2', 'https://t.me/leplug_idf');
+                    if (typeof addVerificationChannelRow === 'function') {
+                        addVerificationChannelRow('Canal 1', 'https://t.me/+qTYatGLmccpkZmRk');
+                        addVerificationChannelRow('Canal 2', 'https://t.me/leplug_idf');
+                    }
                 }
             }
 
@@ -7502,23 +7524,6 @@
             setTimeout(() => div.classList.remove('highlight-new'), 1500);
         }
 
-        function addVerificationChannelRow(label = '', url = '') {
-            const container = document.getElementById('verification_channels_container');
-            if (!container) return;
-            const div = document.createElement('div');
-            div.className = 'verification-channel-row highlight-new';
-            div.style = "display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:8px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); transition:0.2s;";
-            div.innerHTML = `
-                <input class="vc-label-input" value="${label}" placeholder="Nom (ex: Canal VIP)" style="flex:1; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
-                <input class="vc-url-input" value="${url}" placeholder="https://t.me/..." style="flex:2; background:rgba(255,255,255,0.05); border:none; border-radius:6px;">
-                <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:8px;">✕</button>
-            `;
-            container.appendChild(div);
-            setTimeout(() => {
-                div.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 50);
-            setTimeout(() => div.classList.remove('highlight-new'), 1500);
-        }
 
         async function delUser(id) {
             const ok = await showModal('Supprimer', 'Supprimer cet utilisateur ?');
