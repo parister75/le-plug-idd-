@@ -270,7 +270,7 @@ function setupAdminHandlers(bot) {
         await ctx.answerCbQuery();
         const stats = await getStatsOverview();
         const msg = `📊 <b>Statistiques Globales</b>\n\n` +
-            `• Total CA : <b>${stats.totalCA}€</b>\n` +
+            `• Total CA : <b>${(parseFloat(stats.totalCA) || 0).toFixed(2)}€</b>\n` +
             `• Commandes : <b>${stats.totalOrders}</b>\n` +
             `• Utilisateurs : <b>${stats.totalUsers}</b>\n` +
             `• Livreurs Actifs : <b>${stats.activeLivreurs}</b>\n` +
@@ -289,7 +289,7 @@ function setupAdminHandlers(bot) {
         const buttons = orders.map(o => {
             const shortId = o.id.slice(-6);
             const icon = o.status === 'delivered' ? '✅' : (o.status === 'pending' ? '⏳' : '❌');
-            return [Markup.button.callback(`${icon} #${shortId} - ${o.total_price}€ - ${o.first_name || 'Cl'}`, `ao_v_${o.id}`)];
+            return [Markup.button.callback(`${icon} #${shortId} - ${(parseFloat(o.total_price) || 0).toFixed(2)}€ - ${o.first_name || 'Cl'}`, `ao_v_${o.id}`)];
         });
         buttons.push([Markup.button.callback('◀️ Retour', 'admin_menu')]);
 
@@ -307,7 +307,7 @@ function setupAdminHandlers(bot) {
             `🛒 Produit : ${order.product_name} x${order.quantity}\n` +
             `📍 Adresse : ${order.address || 'Non renseignée'}\n` +
             (order.scheduled_at ? `🕒 <b>LIVRAISON PRÉVUE : ${order.scheduled_at}</b>\n` : `🚀 <b>ASAP</b>\n`) +
-            `💰 Total : ${order.total_price}€\n` +
+            `💰 Total : ${(parseFloat(order.total_price) || 0).toFixed(2)}€\n` +
             (order.livreur_name ? `🚴 Livreur : ${order.livreur_name}\n` : '') +
             `🔘 Statut : <b>${order.status.toUpperCase()}</b>`;
 
