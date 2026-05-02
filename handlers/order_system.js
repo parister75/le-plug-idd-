@@ -181,8 +181,8 @@ function setupOrderSystem(bot) {
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
             promoText += `\n📉 <b>PRIX DÉGRESSIFS :</b>\n`;
             product.discounts_config.forEach(d => {
-                const discountTotal = d.total || d.total_price;
-                promoText += `• ${d.qty} unités : <b>${discountTotal}€</b> (au lieu de ${(product.price * d.qty).toFixed(2)}€)\n`;
+                const discountTotal = parseFloat(d.total) || parseFloat(d.total_price) || 0;
+                promoText += `• ${d.qty} unités : <b>${discountTotal}€</b> (au lieu de ${(parseFloat(product.price) * d.qty).toFixed(2)}€)\n`;
             });
         }
 
@@ -234,12 +234,15 @@ function setupOrderSystem(bot) {
         }
 
         // Calcul du prix avec gestion des paliers dégressifs
-        let totalPriceValue = product.price * qty;
+        const unitPrice = parseFloat(product.price) || 0;
+        let totalPriceValue = unitPrice * qty;
+        
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
             const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
             const bestDiscount = sortedDiscounts.find(d => qty >= d.qty);
             if (bestDiscount) {
-                totalPriceValue = bestDiscount.total_price + (qty - bestDiscount.qty) * product.price;
+                const discountTotal = parseFloat(bestDiscount.total) || parseFloat(bestDiscount.total_price) || 0;
+                totalPriceValue = discountTotal + (qty - bestDiscount.qty) * unitPrice;
             }
         }
         const totalPrice = totalPriceValue.toFixed(2);
@@ -363,7 +366,7 @@ function setupOrderSystem(bot) {
         const buttons = [];
 
         cart.forEach((item, idx) => {
-            const price = parseFloat(item.totalPrice);
+            const price = parseFloat(item.totalPrice) || 0;
             total += price;
             summary += `${idx + 1}. ${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''} - <b>${price.toFixed(2)}€</b>\n`;
             // Bouton de suppression individuelle
@@ -565,14 +568,16 @@ function setupOrderSystem(bot) {
         // Support comma and remove non-numeric chars for baseVal calculation
         const cleanUnitVal = String(product.unit_value || '1').replace(',', '.');
         const baseVal = parseFloat(cleanUnitVal) || 1;
+        const unitPrice = parseFloat(product.price) || 0;
         const effectiveQty = (amount / baseVal) * qty;
 
-        let totalPriceValue = (product.price / baseVal) * amount * qty;
+        let totalPriceValue = (unitPrice / baseVal) * amount * qty;
         if (product.has_discounts && product.discounts_config && product.discounts_config.length > 0) {
             const sortedDiscounts = [...product.discounts_config].sort((a, b) => b.qty - a.qty);
             const bestDiscount = sortedDiscounts.find(d => effectiveQty >= d.qty);
             if (bestDiscount) {
-                totalPriceValue = bestDiscount.total_price + (effectiveQty - bestDiscount.qty) * product.price;
+                const discountTotal = parseFloat(bestDiscount.total) || parseFloat(bestDiscount.total_price) || 0;
+                totalPriceValue = discountTotal + (effectiveQty - bestDiscount.qty) * unitPrice;
             }
         }
         let finalPrice = totalPriceValue.toFixed(2);
@@ -738,11 +743,11 @@ function setupOrderSystem(bot) {
                 pendingOrderConfirmation.set(userId, { ...checkoutData, possibleDiscount });
                 return safeEdit(ctx,
                     `💰 <b>Utiliser votre solde ?</b>\n\n` +
-                    `Votre solde actuel : <b>${(user.wallet_balance).toFixed(2)}€</b>\n` +
-                    `Réduction possible : <b>${possibleDiscount.toFixed(2)}€</b>.\n\n` +
+                    `Votre solde actuel : <b>${(parseFloat(user.wallet_balance) || 0).toFixed(2)}€</b>\n` +
+                    `Réduction possible : <b>${(parseFloat(possibleDiscount) || 0).toFixed(2)}€</b>.\n\n` +
                     `Voulez-vous l'appliquer ?`,
                     Markup.inlineKeyboard([
-                        [Markup.button.callback(`✅ Déduire ${possibleDiscount.toFixed(2)}€`, 'confirm_order_use_credit_yes'), Markup.button.callback('❌ Plein tarif', 'confirm_order_use_credit_no')],
+                        [Markup.button.callback(`✅ Déduire ${(parseFloat(possibleDiscount) || 0).toFixed(2)}€`, 'confirm_order_use_credit_yes'), Markup.button.callback('❌ Plein tarif', 'confirm_order_use_credit_no')],
                         [Markup.button.callback(settings.btn_back_to_address || '◀️ Retour Adresse', 'start_checkout')]
                     ])
                 );
@@ -1005,9 +1010,9 @@ function setupOrderSystem(bot) {
             cartText +
             t(user, 'label_address', `📍 Adresse :`) + ` ${address}\n` +
             (scheduledAt ? t(user, 'label_scheduled_for', `🕒 Prévue pour :`) + ` <b>${scheduledAt}</b>\n` : t(user, 'label_delivery_asap', `🚀 Livraison : ASAP`) + `\n`) +
-            (priorityFee > 0 ? t(user, 'label_priority_option', `🚀 <b>Option Prioritaire : +{fee}€</b>`, { fee: priorityFee.toFixed(2) }) + `\n` : '') +
-            t(user, 'label_subtotal', `💰 Sous-total :`) + ` <b>${totalProducts.toFixed(2)}€</b>\n` +
-            (discount > 0 ? t(user, 'label_credit_discount', `🎁 Remise Crédit :`) + ` -${discount.toFixed(2)}€\n` : '') +
+            (priorityFee > 0 ? t(user, 'label_priority_option', `🚀 <b>Option Prioritaire : +{fee}€</b>`, { fee: (parseFloat(priorityFee) || 0).toFixed(2) }) + `\n` : '') +
+            t(user, 'label_subtotal', `💰 Sous-total :`) + ` <b>${(parseFloat(totalProducts) || 0).toFixed(2)}€</b>\n` +
+            (discount > 0 ? t(user, 'label_credit_discount', `🎁 Remise Crédit :`) + ` -${(parseFloat(discount) || 0).toFixed(2)}€\n` : '') +
             t(user, 'label_total_to_pay', `💵 <b>TOTAL À RÉGLER : {total}€</b>`, { total: finalPrice.toFixed(2) }) + `\n\n` +
             t(user, 'msg_confirm_order', `Confirmez-vous la commande ?`);
 
@@ -1072,8 +1077,8 @@ function setupOrderSystem(bot) {
         const cart = userCarts.get(userId) || [];
         const productList = cart.map(item => `${item.productName} (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}`).join(', ');
         const totalQty = cart.reduce((acc, item) => acc + item.qty, 0);
-        const discount = useDiscount ? (pending.possibleDiscount || 0) : 0;
-        const finalPrice = parseFloat(pending.totalPrice) - discount;
+        const discount = useDiscount ? (parseFloat(pending.possibleDiscount) || 0) : 0;
+        const finalPrice = (parseFloat(pending.totalPrice) || 0) - discount;
 
         const isPriority = pending.is_priority;
         const priorityFee = isPriority ? (parseFloat(pending.priority_fee) || 0) : 0;
