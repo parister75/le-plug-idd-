@@ -182,7 +182,7 @@ function setupOrderSystem(bot) {
             promoText += `\n📉 <b>PRIX DÉGRESSIFS :</b>\n`;
             product.discounts_config.forEach(d => {
                 const discountTotal = parseFloat(d.total) || parseFloat(d.total_price) || 0;
-                promoText += `• ${d.qty} unités : <b>${discountTotal}€</b> (au lieu de ${(parseFloat(product.price) * d.qty).toFixed(2)}€)\n`;
+                promoText += `• ${d.qty} unités : <b>${discountTotal.toFixed(2)}€</b> (au lieu de ${( (parseFloat(product.price) || 0) * d.qty).toFixed(2)}€)\n`;
             });
         }
 
@@ -242,10 +242,10 @@ function setupOrderSystem(bot) {
             const bestDiscount = sortedDiscounts.find(d => qty >= d.qty);
             if (bestDiscount) {
                 const discountTotal = parseFloat(bestDiscount.total) || parseFloat(bestDiscount.total_price) || 0;
-                totalPriceValue = discountTotal + (qty - bestDiscount.qty) * unitPrice;
+                totalPriceValue = discountTotal + (qty - (parseInt(bestDiscount.qty) || 0)) * unitPrice;
             }
         }
-        const totalPrice = totalPriceValue.toFixed(2);
+        const totalPrice = (parseFloat(totalPriceValue) || 0).toFixed(2);
 
         let bundleText = "";
         if (product.is_bundle) {
@@ -428,7 +428,7 @@ function setupOrderSystem(bot) {
 
         if (total < minOrder) {
             return safeEdit(ctx,
-                t(user, 'msg_min_order_error', `⚠️ <b>Minimum de commande non atteint</b>\n\nNous ne livrons pas en dessous de <b>{min}€</b>.\nVotre total actuel : <b>{total}€</b>\n\nVeuillez ajouter d'autres produits à votre panier.`, { min: minOrder, total: total.toFixed(2) }),
+                t(user, 'msg_min_order_error', `⚠️ <b>Minimum de commande non atteint</b>\n\nNous ne livrons pas en dessous de <b>{min}€</b>.\nVotre total actuel : <b>{total}€</b>\n\nVeuillez ajouter d'autres produits à votre panier.`, { min: (parseFloat(minOrder) || 0).toFixed(2), total: (parseFloat(total) || 0).toFixed(2) }),
                 Markup.inlineKeyboard([
                     [Markup.button.callback(t(user, 'btn_add_products', '🛍️ Ajouter des produits'), 'view_catalog')],
                     [Markup.button.callback(t(user, 'btn_back_to_cart_label', '🛒 Retour au Panier'), 'view_cart')]
@@ -577,10 +577,10 @@ function setupOrderSystem(bot) {
             const bestDiscount = sortedDiscounts.find(d => effectiveQty >= d.qty);
             if (bestDiscount) {
                 const discountTotal = parseFloat(bestDiscount.total) || parseFloat(bestDiscount.total_price) || 0;
-                totalPriceValue = discountTotal + (effectiveQty - bestDiscount.qty) * unitPrice;
+                totalPriceValue = discountTotal + (effectiveQty - (parseFloat(bestDiscount.qty) || 0)) * unitPrice;
             }
         }
-        let finalPrice = totalPriceValue.toFixed(2);
+        let finalPrice = (parseFloat(totalPriceValue) || 0).toFixed(2);
 
         let bundleText = "";
         if (product.is_bundle) {
@@ -710,7 +710,7 @@ function setupOrderSystem(bot) {
         if (pending && pending.is_priority) {
             is_priority = true;
             priority_fee = parseFloat(pending.priority_fee) || 0;
-            total += priority_fee;
+            total = (parseFloat(total) || 0) + priority_fee;
         }
 
         const checkoutData = {
@@ -734,10 +734,10 @@ function setupOrderSystem(bot) {
             const minSpend = settings.fidelity_min_spend || 50;
 
             // On calcule combien on peut déduire sans descendre sous le minSpend
-            const maxAllowedByPct = (total * maxPct) / 100;
-            const maxToKeepMinSpend = Math.max(0, total - minSpend);
+            const maxAllowedByPct = ((parseFloat(total) || 0) * (parseFloat(maxPct) || 0)) / 100;
+            const maxToKeepMinSpend = Math.max(0, (parseFloat(total) || 0) - (parseFloat(minSpend) || 0));
 
-            const possibleDiscount = Math.min(maxAllowedByPct, user.wallet_balance, maxToKeepMinSpend);
+            const possibleDiscount = Math.min(maxAllowedByPct, parseFloat(user.wallet_balance) || 0, maxToKeepMinSpend);
 
             if (possibleDiscount > 0) {
                 pendingOrderConfirmation.set(userId, { ...checkoutData, possibleDiscount });
@@ -915,8 +915,8 @@ function setupOrderSystem(bot) {
         const pending = pendingOrderConfirmation.get(userId);
         if (!pending) return safeEdit(ctx, settings.msg_session_expired || "Sesssion expirée ❌", Markup.inlineKeyboard([[Markup.button.callback(settings.btn_back_quick_menu || '◀️ Menu', 'main_menu')]]));
 
-        const finalPrice = parseFloat(pending.totalPrice) - pending.possibleDiscount;
-        await showCartSummary(ctx, pending.address, finalPrice, pending.possibleDiscount, pending.scheduled_at);
+        const finalPrice = (parseFloat(pending.totalPrice) || 0) - (parseFloat(pending.possibleDiscount) || 0);
+        await showCartSummary(ctx, pending.address, finalPrice, (parseFloat(pending.possibleDiscount) || 0), pending.scheduled_at);
     });
 
     bot.action('confirm_order_use_credit_no', async (ctx) => {
@@ -926,7 +926,7 @@ function setupOrderSystem(bot) {
         const pending = pendingOrderConfirmation.get(userId);
         if (!pending) return safeEdit(ctx, settings.msg_session_expired || "Sesssion expirée ❌", Markup.inlineKeyboard([[Markup.button.callback(settings.btn_back_quick_menu || '◀️ Menu', 'main_menu')]]));
 
-        await showCartSummary(ctx, pending.address, parseFloat(pending.totalPrice), 0, pending.scheduled_at);
+        await showCartSummary(ctx, pending.address, (parseFloat(pending.totalPrice) || 0), 0, pending.scheduled_at);
     });
 
     async function showMyOrders(ctx) {
@@ -1003,21 +1003,21 @@ function setupOrderSystem(bot) {
             cartText += `📦 <b>${item.productName}</b> (x${item.qty})${item.chosen_unit_amount ? ` [${item.chosen_unit_amount}]` : ''}\n`;
         });
 
-        const priorityFee = pending?.is_priority ? parseFloat(pending.priority_fee) : 0;
-        const totalProducts = (finalPrice + discount) - priorityFee;
+        const priorityFee = pending?.is_priority ? (parseFloat(pending.priority_fee) || 0) : 0;
+        const totalProducts = ( (parseFloat(finalPrice) || 0) + (parseFloat(discount) || 0) ) - priorityFee;
 
         const text = t(user, 'msg_order_cart_summary', `🛒 <b>Récapitulatif de Commande</b>`) + `\n\n` +
             cartText +
             t(user, 'label_address', `📍 Adresse :`) + ` ${address}\n` +
             (scheduledAt ? t(user, 'label_scheduled_for', `🕒 Prévue pour :`) + ` <b>${scheduledAt}</b>\n` : t(user, 'label_delivery_asap', `🚀 Livraison : ASAP`) + `\n`) +
-            (priorityFee > 0 ? t(user, 'label_priority_option', `🚀 <b>Option Prioritaire : +{fee}€</b>`, { fee: (parseFloat(priorityFee) || 0).toFixed(2) }) + `\n` : '') +
+            (priorityFee > 0 ? t(user, 'label_priority_option', `🚀 <b>Option Prioritaire : +{fee}€</b>`, { fee: priorityFee.toFixed(2) }) + `\n` : '') +
             t(user, 'label_subtotal', `💰 Sous-total :`) + ` <b>${(parseFloat(totalProducts) || 0).toFixed(2)}€</b>\n` +
             (discount > 0 ? t(user, 'label_credit_discount', `🎁 Remise Crédit :`) + ` -${(parseFloat(discount) || 0).toFixed(2)}€\n` : '') +
-            t(user, 'label_total_to_pay', `💵 <b>TOTAL À RÉGLER : {total}€</b>`, { total: finalPrice.toFixed(2) }) + `\n\n` +
+            t(user, 'label_total_to_pay', `💵 <b>TOTAL À RÉGLER : {total}€</b>`, { total: (parseFloat(finalPrice) || 0).toFixed(2) }) + `\n\n` +
             t(user, 'msg_confirm_order', `Confirmez-vous la commande ?`);
 
         const settings = (ctx.state?.settings || await getAppSettings());
-        const netToPay = finalPrice.toFixed(2);
+        const netToPay = (parseFloat(finalPrice) || 0).toFixed(2);
         
         const keyboard = [];
         
